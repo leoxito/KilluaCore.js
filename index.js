@@ -25,7 +25,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import yts from 'yt-search'
 import { Sticker, StickerTypes } from 'wa-sticker-formatter'
-import printLog from './src/sistema/consola.js'
+import printLog from './src/sistema/consola.js'  // ← IMPORTACIÓN DE LA CONSOLA
 import readline from 'readline'
 import qrcode from "qrcode"
 import NodeCache from 'node-cache'
@@ -366,9 +366,7 @@ const checkAdmin = async (conn, from, sender) => {
         const settings = global.db.data.settings[conn.user.jid] || {}
         
         // ===== SISTEMA DE RECONOCIMIENTO DE OWNER CORREGIDO =====
-        // Obtenemos el número sin el @s.whatsapp.net
         const senderNumber = realSender.split('@')[0]
-        // Verificamos si está en la lista de owners
         const isOwner = global.owner.includes(senderNumber)
 
         if (user && user.banned && !isOwner) return 
@@ -394,7 +392,7 @@ let body = (type === 'conversation') ? msg.message.conversation :
 body = typeof body === 'string' ? body.trim() : ''
 
                 // ===== PRINTLOG ACTIVADO =====
-                printLog(msg, conn)
+                printLog(msg, conn)  // ← LA CONSOLA ESTÁ ACTIVADA
 
                 if (isGroup && global.db.data.chats[from]?.antilink) {
             const linkRegex = /https?:\/\/\S+|www\.\S+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}\/\S+/gi
