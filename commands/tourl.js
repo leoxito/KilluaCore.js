@@ -16,7 +16,7 @@ case 'tourl': {
 
     try {
         let finalUrl = '';
-        
+
         // Opción 1: Si enviaron un enlace directamente
         if (args[0] && args[0].startsWith('http')) {
             const response = await axios.post(apiUrl, { url: args[0] }, {
@@ -30,23 +30,26 @@ case 'tourl': {
             let extension = mime.split('/')[1] || (mime.includes('image') ? 'jpg' : 'mp4');
             if (extension === 'jpeg') extension = 'jpg';
             if (extension.includes(';')) extension = extension.split(';')[0];
-            
+
             const filename = `file_${Date.now()}.${extension}`;
-            
+
             const response = await axios.post(`${apiUrl}/raw?filename=${filename}`, media, {
                 headers: { 
                     'apikey': apikey,
                     'Content-Type': 'application/octet-stream'
                 }
             });
-            
+
             if (!response.data.status) throw new Error(response.data.message || 'Error al subir');
             finalUrl = response.data.result.url;
         } 
         else {
-                        return reply(`🪵 *Por favor, responde a una imagen o envía un enlace de imagen.*`);
+            return reply(`🪵 *Por favor, responde a una imagen o envía un enlace de imagen.*`);
+        }
 
+        // El reply va AQUÍ, después del else, no dentro
         reply(`> ✎ *Enlace:* ${finalUrl}`);
+        
     } catch (e) {
         reply(`Error: ${e.message}`);
     }
