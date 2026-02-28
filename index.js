@@ -59,20 +59,31 @@ const reaccionesPath = join(dirname(fileURLToPath(import.meta.url)), 'src', 'dat
 if (!existsSync(dirname(reaccionesPath))) mkdirSync(dirname(reaccionesPath), { recursive: true });
 if (!existsSync(reaccionesPath)) writeFileSync(reaccionesPath, JSON.stringify({}, null, 2));
 
-// ===== CORREGIDO: CARGA DE PLUGINS =====
+// ===== CARGA DE PLUGINS CON CASE =====
 const loadPlugins = (directory) => {
     try {
         const files = readdirSync(directory, { recursive: true });
+        console.log(chalk.cyan(`📂 Cargando comandos desde: ${directory}`));
+        
         for (const file of files) {
             if (file.endsWith('.js')) {
                 const fullPath = join(directory, file);
-                global.plugins[file] = readFileSync(fullPath, 'utf8');
-                console.log(chalk.green(`✓ Plugin cargado: ${file}`));
+                const content = readFileSync(fullPath, 'utf8');
+                global.plugins[file] = content;
+                
+                // Extraer y mostrar los comandos CASE encontrados
+                const caseMatches = [...content.matchAll(/case\s+['"](.+?)['"]\s*:/g)];
+                if (caseMatches.length > 0) {
+                    const commands = caseMatches.map(m => m[1]).join(', ');
+                    console.log(chalk.green(`  ✅ ${file}: ${commands}`));
+                } else {
+                    console.log(chalk.yellow(`  ⚠️ ${file}: No se encontraron comandos CASE`));
+                }
             }
         }
-        console.log(chalk.cyan(`📁 Total plugins: ${Object.keys(global.plugins).length}`));
+        console.log(chalk.cyan(`📊 Total plugins: ${Object.keys(global.plugins).length}\n`));
     } catch (e) {
-        console.log(chalk.yellow('⚠️ No hay plugins en commands/'));
+        console.log(chalk.red('Error cargando plugins:', e));
     }
 };
 
@@ -82,7 +93,7 @@ loadPlugins(commandsDir);
 
 watch(commandsDir, { recursive: true }, (event, filename) => {
     if (filename && filename.endsWith('.js')) {
-        console.log(chalk.yellow(`🔄 Plugin actualizado: ${filename}`));
+        console.log(chalk.yellow(`🔄 Cambio detectado en ${filename}, recargando...`));
         loadPlugins(commandsDir);
     }
 });
@@ -454,25 +465,42 @@ let expRequired = userStats.level * 500
     userStats.exp = 0 
 }                              
 
-                switch (command) {      
-                    default:
-                        let commandFound = false
-                        for (let i in global.plugins) {
-                            try {
-                                if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
-                                    await eval(`(async () => { switch (command) { ${global.plugins[i]} } })()`)
-                                    commandFound = true
-                                    break
-                                }
-                            } catch (e) {
-                                console.error(e)
-                            }
+                // ===== AQUÍ SE EJECUTAN LOS COMANDOS CON CASE =====
+                // Crear un contexto con todas las variables necesarias
+                const context = {
+                    conn, from, sender, pushName, reply, isGroup, text, q, args,
+                    isOwner, isMod, msg, body, usedPrefix, commandText
+                };
+                
+                let commandFound = false
+                
+                // Buscar en todos los plugins
+                for (let i in global.plugins) {
+                    try {
+                        const content = global.plugins[i];
+                        
+                        // Verificar si el comando existe en este plugin
+                        if (content.includes(`case '${command}':`) || content.includes(`case "${command}":`)) {
+                            console.log(chalk.green(`   ✅ Ejecutando ${command} desde ${i}`));
+                            
+                            // Crear una función con el contexto y el contenido del plugin
+                            const fn = new Function('conn', 'from', 'sender', 'pushName', 'reply', 'isGroup', 'text', 'q', 'args', 'isOwner', 'isMod', 'msg', 'body', 'usedPrefix', 'commandText', 'performance', `
+                                ${content}
+                            `);
+                            
+                            await fn(conn, from, sender, pushName, reply, isGroup, text, q, args, isOwner, isMod, msg, body, usedPrefix, commandText, performance);
+                            
+                            commandFound = true;
+                            break;
                         }
+                    } catch (e) {
+                        console.log(chalk.red(`   ❌ Error en ${i}:`, e));
+                    }
+                }
 
-                        if (!commandFound && usedPrefix) {
-                            reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
-                        }
-                    break
+                if (!commandFound && usedPrefix) {
+                    console.log(chalk.red(`   ❌ Comando no encontrado: ${command}`));
+                    reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
                 }
         }
     } catch (err) { 
