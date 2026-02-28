@@ -365,9 +365,9 @@ const checkAdmin = async (conn, from, sender) => {
 
         const settings = global.db.data.settings[conn.user.jid] || {}
         
-        // ===== SISTEMA DE RECONOCIMIENTO DE OWNER CORREGIDO =====
-        const senderNumber = realSender.split('@')[0]
-        const isOwner = global.owner.includes(senderNumber)
+        // ===== CORRECCIÓN: DETECCIÓN DE OWNER =====
+                const senderNumber = realSender.split('@')[0]
+                const isOwner = global.owner.includes(senderNumber)
 
         if (user && user.banned && !isOwner) return 
 
@@ -392,7 +392,7 @@ let body = (type === 'conversation') ? msg.message.conversation :
 body = typeof body === 'string' ? body.trim() : ''
 
                 // ===== PRINTLOG ACTIVADO =====
-                printLog(msg, conn)  // ← LA CONSOLA ESTÁ ACTIVADA
+                printLog(msg, conn)
 
                 if (isGroup && global.db.data.chats[from]?.antilink) {
             const linkRegex = /https?:\/\/\S+|www\.\S+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}\/\S+/gi
