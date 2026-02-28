@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // Escanea automáticamente la carpeta de comandos
 const scanCommands = () => {
-    const commandsDir = path.join(__dirname, '../commands')
+    const commandsDir = path.join(__dirname, './commands')
     const categories = {}
     
     try {
