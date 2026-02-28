@@ -59,6 +59,7 @@ const reaccionesPath = join(dirname(fileURLToPath(import.meta.url)), 'src', 'dat
 if (!existsSync(dirname(reaccionesPath))) mkdirSync(dirname(reaccionesPath), { recursive: true });
 if (!existsSync(reaccionesPath)) writeFileSync(reaccionesPath, JSON.stringify({}, null, 2));
 
+// ===== CORREGIDO: CARGA DE PLUGINS =====
 const loadPlugins = (directory) => {
     try {
         const files = readdirSync(directory, { recursive: true });
@@ -66,9 +67,13 @@ const loadPlugins = (directory) => {
             if (file.endsWith('.js')) {
                 const fullPath = join(directory, file);
                 global.plugins[file] = readFileSync(fullPath, 'utf8');
+                console.log(chalk.green(`✓ Plugin cargado: ${file}`));
             }
         }
-    } catch (e) {}
+        console.log(chalk.cyan(`📁 Total plugins: ${Object.keys(global.plugins).length}`));
+    } catch (e) {
+        console.log(chalk.yellow('⚠️ No hay plugins en commands/'));
+    }
 };
 
 const commandsDir = join(__dirname, 'commands');
@@ -77,6 +82,7 @@ loadPlugins(commandsDir);
 
 watch(commandsDir, { recursive: true }, (event, filename) => {
     if (filename && filename.endsWith('.js')) {
+        console.log(chalk.yellow(`🔄 Plugin actualizado: ${filename}`));
         loadPlugins(commandsDir);
     }
 });
