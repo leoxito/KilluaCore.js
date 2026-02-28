@@ -25,7 +25,7 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import yts from 'yt-search'
 import { Sticker, StickerTypes } from 'wa-sticker-formatter'
-import printLog from './src/sistema/consola.js'  // ← IMPORTACIÓN DE LA CONSOLA
+import printLog from './src/sistema/consola.js'
 import readline from 'readline'
 import qrcode from "qrcode"
 import NodeCache from 'node-cache'
