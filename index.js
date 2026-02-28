@@ -365,8 +365,10 @@ const checkAdmin = async (conn, from, sender) => {
 
         const settings = global.db.data.settings[conn.user.jid] || {}
         
-        // ===== CORRECCIÓN: DETECCIÓN DE OWNER =====
+        // ===== SISTEMA DE RECONOCIMIENTO DE OWNER CORREGIDO =====
+        // Obtenemos el número sin el @s.whatsapp.net
         const senderNumber = realSender.split('@')[0]
+        // Verificamos si está en la lista de owners
         const isOwner = global.owner.includes(senderNumber)
 
         if (user && user.banned && !isOwner) return 
