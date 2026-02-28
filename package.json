@@ -40,7 +40,6 @@
     "license": "GPL-3.0-or-later",
     "dependencies": {
         "@adiwajshing/keyed-db": "^0.2.4",
-        "@takanashi-soft/tools": "https://github.com/takanashi-soft/soft-tools.git",
         "@vitalets/google-translate-api": "^9.2.0",
         "@whiskeysockets/baileys": "npm:angularsockets",
         "awesome-phonenumber": "^3.4.0",
