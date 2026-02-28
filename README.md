@@ -1,3 +1,0 @@
-![Killua Wa Banner](https://files.catbox.moe/3272h2.jpg)
-
-Bienvenido al repositorio de `Killua Wa`, Este proyecto se encuentra actualmente en versión Beta, en desarrollo activo y aún no está completo. Puede contener `errores` o `faltarle comandos` ya que apenas está en proceso...
