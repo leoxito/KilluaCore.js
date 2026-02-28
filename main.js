@@ -169,6 +169,7 @@ while (true) {
 addNumber = await question(chalk.bgBlack(chalk.bold.greenBright("\n\n✳️ Escriba su numero\n\nEjemplo: 5491168xxxx\n\n")))
 addNumber = addNumber.replace(/[^0-9]/g, '')
 
+// ===== LÍNEA 172 CORREGIDA =====
 if (addNumber.match(/^\d+$/) && Object.keys(PHONENUMBER_MCC).some(v => addNumber.startsWith(v))) {
 break 
 } else {
