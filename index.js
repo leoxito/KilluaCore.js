@@ -405,6 +405,9 @@ let body = (type === 'conversation') ? msg.message.conversation :
 
 body = typeof body === 'string' ? body.trim() : ''
 
+                // ===== PRINTLOG ACTIVADO =====
+                printLog(msg, conn)  // ¡AHORA SÍ FUNCIONA!
+
                 if (isGroup && global.db.data.chats[from]?.antilink) {
             const linkRegex = /https?:\/\/\S+|www\.\S+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}\/\S+/gi
             if (linkRegex.test(body)) {
@@ -424,8 +427,6 @@ body = typeof body === 'string' ? body.trim() : ''
                 }
             }
         }
-
-       // printLog(msg, conn)
 
         const usedPrefix = prefixList.find(p => body.startsWith(p))
 
@@ -465,13 +466,7 @@ let expRequired = userStats.level * 500
     userStats.exp = 0 
 }                              
 
-                // ===== AQUÍ SE EJECUTAN LOS COMANDOS CON CASE =====
-                // Crear un contexto con todas las variables necesarias
-                const context = {
-                    conn, from, sender, pushName, reply, isGroup, text, q, args,
-                    isOwner, isMod, msg, body, usedPrefix, commandText
-                };
-                
+                // ===== EJECUCIÓN DE COMANDOS CON CASE =====
                 let commandFound = false
                 
                 // Buscar en todos los plugins
@@ -512,7 +507,7 @@ let expRequired = userStats.level * 500
     conn.ev.on('connection.update', (u) => {
     if (u.connection === 'open') {
     global.mainConn = conn
-    console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
+    console.log(chalk.cyan(`🌱 ${global.botName || 'Delta'} conectado correctamente`))
 }
 
     if (u.connection === 'close') {
