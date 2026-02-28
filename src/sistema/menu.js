@@ -1,4 +1,4 @@
-// menu.js - Sistema automático de menú con tu misma decoración
+// sistema/menu.js - Sistema automático de menú con tu misma decoración
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
