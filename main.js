@@ -1,4 +1,3 @@
-
 //process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 import './config.js'; 
 import { createRequire } from "module"; // Bring in the ability to create the 'require' method
@@ -35,7 +34,6 @@ import readline from 'readline'
 import fs from 'fs'
 const { CONNECTING } = ws
 const { chain } = lodash
-const PORT = process.env.PORT || process.env.SERVER_PORT || 3000
 
 protoType()
 serialize()
@@ -199,8 +197,6 @@ if (!opts['test']) {
   }, 60 * 1000)
 }
 
-if (opts['server']) (await import('./server.js')).default(global.conn, PORT)
-
 /* Clear */
 async function clearTmp() {
   const tmp = [tmpdir(), join(__dirname, './tmp')]
@@ -216,8 +212,8 @@ async function clearTmp() {
 }
 
 setInterval(async () => {
-	await clearTmp()
-	//console.log(chalk.cyan(`✅  Auto clear  | Se limpio la carpeta tmp`))
+        await clearTmp()
+        //console.log(chalk.cyan(`✅  Auto clear  | Se limpio la carpeta tmp`))
 }, 60000) //1 munto
 
 async function connectionUpdate(update) {
@@ -228,7 +224,7 @@ async function connectionUpdate(update) {
     console.log(await global.reloadHandler(true).catch(console.error))
     global.timestamp.connect = new Date
   }
-  
+
   if (global.db.data == null) loadDatabase()
 
 } //-- cu 
