@@ -13,8 +13,8 @@ global.botName = 'Killua-Wa'
 global.vs = '1.core.js'
 global.prefix = ['*', '+']
 global.packname = 'ᴄᴏʀᴇ.ᴊs'
-global.icono = 'https://cdn.skyultraplus.com/uploads/u3/5ea60b2411a97a83.jpg'
-global.banner = 'https://cdn.skyultraplus.com/uploads/u3/52f832a7a8f3f4c5.jpg'
+global.icono = ''
+global.banner = ''
 
 const file = fileURLToPath(import.meta.url)
 watchFile(file, () => {
