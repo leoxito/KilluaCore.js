@@ -59,8 +59,6 @@ const reaccionesPath = join(dirname(fileURLToPath(import.meta.url)), 'src', 'dat
 if (!existsSync(dirname(reaccionesPath))) mkdirSync(dirname(reaccionesPath), { recursive: true });
 if (!existsSync(reaccionesPath)) writeFileSync(reaccionesPath, JSON.stringify({}, null, 2));
 
-const nsfwData = JSON.parse(fs.readFileSync(join(__dirname, 'src', 'database', 'nsfw.json')))
-
 const loadPlugins = (directory) => {
     try {
         const files = readdirSync(directory, { recursive: true });
@@ -139,7 +137,7 @@ if (existsSync(reaccionesPath)) {
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('Sessions')
     const { version } = await fetchLatestBaileysVersion()
-    
+
     let opcion
     let methodCode = false
     let methodCodeQR = false
@@ -187,7 +185,7 @@ setInterval(async () => {
         await conn.sendPresenceUpdate('available')
     }
 }, 60000)
-    
+
     conn.getName = (jid, withoutContact = false) => {
     jid = decodeJid(jid) || ''
     withoutContact = conn.withoutContact || withoutContact
@@ -195,10 +193,10 @@ setInterval(async () => {
     if (typeof jid === 'string' && jid.endsWith('@g.us')) return new Promise(async (resolve) => {
         v = global.db.data.chats[jid] || {}
         if (v.name || v.subject) return resolve(v.name || v.subject)
-        
+
         const cached = groupCache.get(jid)
         if (cached) return resolve(cached.subject || cached.name)
-        
+
         try {
             const metadata = await conn.groupMetadata(jid)
             groupCache.set(jid, metadata)
@@ -219,11 +217,11 @@ const checkAdmin = async (conn, from, sender) => {
     try {
         const metadata = groupCache.get(from) || await conn.groupMetadata(from).catch(() => null)
         if (!metadata) return { isUserAdmin: false, isBotAdmin: false }
-        
+
         groupCache.set(from, metadata)
         const admins = getAdmins(metadata.participants)
         const botId = decodeJid(conn.user.id)
-        
+
         return { 
             isUserAdmin: admins.includes(decodeJid(sender)), 
             isBotAdmin: admins.includes(botId) 
@@ -266,7 +264,7 @@ const checkAdmin = async (conn, from, sender) => {
 
     conn.ev.on('creds.update', saveCreds)
 
-                
+
                  conn.ev.on('messages.upsert', async (m) => {
     if (!m.messages?.[0] || m.type !== 'notify' || m.messages[0].key.remoteJid === 'status@broadcast') return
     const msg = m.messages[0]
@@ -283,9 +281,9 @@ const checkAdmin = async (conn, from, sender) => {
             async function processMessage(msg, msgId, connCustom, customPrefix) {
     const conn = connCustom || global.mainConn
     if (!conn || !msg || !msg.key || !msg.message) return
-    
+
     const prefixList = Array.isArray(global.prefix) ? global.prefix : [global.prefix]
-    
+
     try {
         const from = msg.key.remoteJid
         const isGroup = from.endsWith('@g.us')
@@ -347,7 +345,6 @@ const checkAdmin = async (conn, from, sender) => {
             bye: false,
             antilink: false,
             economy: true,
-            nsfw: false,
             modoadmin: false,
             sWelcome: '',
             sBye: ''
@@ -360,13 +357,12 @@ const checkAdmin = async (conn, from, sender) => {
         if (!('bye' in chat)) chat.bye = false
         if (!('antilink' in chat)) chat.antilink = false
         if (!('economy' in chat)) chat.economy = true 
-        if (!('nsfw' in chat)) chat.nsfw = false
         if (!('sWelcome' in chat)) chat.sWelcome = ''
         if (!('sBye' in chat)) chat.sBye = ''
     }
 }
 
-     
+
         const settings = global.db.data.settings[conn.user.jid] || {}
         const isOwner = global.owner.some(o => realSender.includes(o[0]))
 
@@ -427,7 +423,7 @@ body = typeof body === 'string' ? body.trim() : ''
             const command = args.shift().toLowerCase()
             const text = args.join(' ')
             const q = text
-            
+
             const reply = async (text) => {
                 if (!text) return
                 return conn.sendMessage(from, { text: String(text) }, { quoted: msg })
@@ -440,7 +436,7 @@ if (isGroup && global.db.data.chats[from]?.modoadmin) {
     const { isUserAdmin } = await checkAdmin(conn, from, sender)
     if (!isUserAdmin && !isOwner) return
 }
-                                 
+
 global.db.data.users[realSender].totalCommands += 1
 global.db.data.users[realSender].exp += Math.floor(Math.random() * 15) + 5
 
@@ -466,7 +462,7 @@ let expRequired = userStats.level * 500
                                 console.error(e)
                             }
                         }
-                        
+
                         if (!commandFound && usedPrefix) {
                             reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
                         }
@@ -484,17 +480,17 @@ let expRequired = userStats.level * 500
     global.mainConn = conn
     console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
 }
-    
+
     if (u.connection === 'close') {
         const statusCode = new Boom(u.lastDisconnect?.error)?.output?.statusCode
         console.log(chalk.white('Desconectado - Código:', statusCode))
-        
+
         if (statusCode !== DisconnectReason.loggedOut) {
             console.log(chalk.cyan('⚡️ Reconectando en 3 segundos...'))
             setTimeout(() => startBot(), 3000)
         } else {
             console.log(chalk.white('📂 Sesión cerrada. Borrando carpeta sessions...'))
-            
+
             const sessionsDir = './Sessions'
             if (fs.existsSync(sessionsDir)) {
                 try {
@@ -504,7 +500,7 @@ let expRequired = userStats.level * 500
                     console.log(chalk.cyan('🗑 Error borrando sessions:', e.message))
                 }
             }
-            
+
             console.log(chalk.white('🔄 Reinicia el bot manualmente'))
             process.exit(0)
         }
