@@ -3,13 +3,13 @@ import chalk from 'chalk'
 import { fileURLToPath } from 'url' 
 
 global.owner = [
-  ['5491168352204', 'FG', true],
-  ['5493794297363'],
-  ['59172945992']
+  ['51918755472', 'EvoCore.js', true],
+  [''],
+  ['']
 ] //Numeros de owner 
 
 global.mods = [''] 
-global.prems = ['50489079501', '573143917092']
+global.prems = ['51918755472', '']
 global.botNumber = [''] 
 global.APIs = { // API Prefix
   // name: 'https://website' 
