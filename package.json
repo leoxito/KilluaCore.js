@@ -42,7 +42,7 @@
         "@adiwajshing/keyed-db": "^0.2.4",
         "@takanashi-soft/tools": "github:takanashi-soft/soft-tools",
         "@vitalets/google-translate-api": "^9.2.0",
-        "@whiskeysockets/baileys": "npm:@itsukichan/baileys",
+        "@whiskeysockets/baileys": "npm:angularsockets",
         "awesome-phonenumber": "^3.4.0",
         "axios": "^1.1.2",
         "form-data": "^4.0.0",
