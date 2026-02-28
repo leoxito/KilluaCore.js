@@ -468,7 +468,7 @@ let expRequired = userStats.level * 500
                         }
                         
                         if (!commandFound && usedPrefix) {
-                            reply(`Comando no encontrado: *${command}*\n\nUsa *${usedPrefix}help* para ver los comandos disponibles`)
+                            reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
                         }
                     break
                 }
@@ -482,7 +482,7 @@ let expRequired = userStats.level * 500
     conn.ev.on('connection.update', (u) => {
     if (u.connection === 'open') {
     global.mainConn = conn
-    console.log(chalk.cyan(`✿ ${global.botName} conectado correctamente`))
+    console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
 }
     
     if (u.connection === 'close') {
@@ -490,22 +490,22 @@ let expRequired = userStats.level * 500
         console.log(chalk.white('Desconectado - Código:', statusCode))
         
         if (statusCode !== DisconnectReason.loggedOut) {
-            console.log(chalk.cyan('Reconectando en 3 segundos...'))
+            console.log(chalk.cyan('⚡️ Reconectando en 3 segundos...'))
             setTimeout(() => startBot(), 3000)
         } else {
-            console.log(chalk.white('Sesión cerrada. Borrando carpeta sessions...'))
+            console.log(chalk.white('📂 Sesión cerrada. Borrando carpeta sessions...'))
             
             const sessionsDir = './Sessions'
             if (fs.existsSync(sessionsDir)) {
                 try {
                     fs.rmSync(sessionsDir, { recursive: true, force: true })
-                    console.log(chalk.white('Carpeta sessions eliminada'))
+                    console.log(chalk.white('🧹 Carpeta sessions eliminada'))
                 } catch (e) {
-                    console.log(chalk.cyan('Error borrando sessions:', e.message))
+                    console.log(chalk.cyan('🗑 Error borrando sessions:', e.message))
                 }
             }
             
-            console.log(chalk.white('Reinicia el bot manualmente'))
+            console.log(chalk.white('🔄 Reinicia el bot manualmente'))
             process.exit(0)
         }
     }
