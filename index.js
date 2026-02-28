@@ -59,8 +59,6 @@ const reaccionesPath = join(dirname(fileURLToPath(import.meta.url)), 'src', 'dat
 if (!existsSync(dirname(reaccionesPath))) mkdirSync(dirname(reaccionesPath), { recursive: true });
 if (!existsSync(reaccionesPath)) writeFileSync(reaccionesPath, JSON.stringify({}, null, 2));
 
-// ELIMINADO: const nsfwData = JSON.parse(fs.readFileSync(join(__dirname, 'src', 'database', 'nsfw.json')))
-
 const loadPlugins = (directory) => {
     try {
         const files = readdirSync(directory, { recursive: true });
@@ -366,7 +364,10 @@ const checkAdmin = async (conn, from, sender) => {
 
 
         const settings = global.db.data.settings[conn.user.jid] || {}
-        const isOwner = global.owner.some(o => realSender.includes(o[0]))
+        
+        // ===== CORRECCIÓN: DETECCIÓN DE OWNER =====
+        const senderNumber = realSender.split('@')[0]
+        const isOwner = global.owner.includes(senderNumber)
 
         if (user && user.banned && !isOwner) return 
 
@@ -413,8 +414,6 @@ body = typeof body === 'string' ? body.trim() : ''
             }
         }
 
-       // printLog(msg, conn)
-
         const usedPrefix = prefixList.find(p => body.startsWith(p))
 
         const prefixCommands = ['prefix', 'prefijo', 'Prefijo', 'Prefix', 'PREFIJO']
@@ -434,45 +433,44 @@ body = typeof body === 'string' ? body.trim() : ''
                 return conn.sendMessage(from, { text: String(text) }, { quoted: msg })
             }
 
-            const isOwner = [conn.user.id.split(':')[0], ...global.owner.map(v => v[0])].map(v => v.replace(/[^0-9]/g, '') + '@s.whatsapp.net').includes(realSender)
             const isMod = isOwner || global.db.data.mods.includes(realSender)
 
-if (isGroup && global.db.data.chats[from]?.modoadmin) {
-    const { isUserAdmin } = await checkAdmin(conn, from, sender)
-    if (!isUserAdmin && !isOwner) return
-}
+            if (isGroup && global.db.data.chats[from]?.modoadmin) {
+                const { isUserAdmin } = await checkAdmin(conn, from, sender)
+                if (!isUserAdmin && !isOwner) return
+            }
 
-global.db.data.users[realSender].totalCommands += 1
-global.db.data.users[realSender].exp += Math.floor(Math.random() * 15) + 5
+            global.db.data.users[realSender].totalCommands += 1
+            global.db.data.users[realSender].exp += Math.floor(Math.random() * 15) + 5
 
-let userStats = global.db.data.users[realSender]
-let expRequired = userStats.level * 500
+            let userStats = global.db.data.users[realSender]
+            let expRequired = userStats.level * 500
 
- if (userStats.exp >= expRequired) {
-    userStats.level += 1
-    userStats.exp = 0 
-}                              
+            if (userStats.exp >= expRequired) {
+                userStats.level += 1
+                userStats.exp = 0 
+            }                              
 
-                switch (command) {      
-                    default:
-                        let commandFound = false
-                        for (let i in global.plugins) {
-                            try {
-                                if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
-                                    await eval(`(async () => { switch (command) { ${global.plugins[i]} } })()`)
-                                    commandFound = true
-                                    break
-                                }
-                            } catch (e) {
-                                console.error(e)
+            switch (command) {      
+                default:
+                    let commandFound = false
+                    for (let i in global.plugins) {
+                        try {
+                            if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
+                                await eval(`(async () => { switch (command) { ${global.plugins[i]} } })()`)
+                                commandFound = true
+                                break
                             }
+                        } catch (e) {
+                            console.error(e)
                         }
+                    }
 
-                        if (!commandFound && usedPrefix) {
-                            reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
-                        }
+                    if (!commandFound && usedPrefix) {
+                        reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
+                    }
                     break
-                }
+            }
         }
     } catch (err) { 
         console.error('Error en processMessage:', err) 
