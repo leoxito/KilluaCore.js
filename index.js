@@ -37,6 +37,7 @@ const searchCache = new Map();
 
 global.mainConn = null
 global.plugins = {}
+global.conns = [] // Array para guardar sub-bots activos
 const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const groupCache = new NodeCache({ stdTTL: 600, checkperiod: 60 })
@@ -363,7 +364,6 @@ const checkAdmin = async (conn, from, sender) => {
         const userJid = m.key.participant || m.key.remoteJid
         const id = phone ? phone.replace(/[^0-9]/g, '') : decodeJid(userJid).split('@')[0]
         
-        // ===== CARPETA SEPARADA PARA SUB-BOTS (CAMBIADA) =====
         const sessionFolder = `./subSession/${id}`
 
         if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder, { recursive: true })
@@ -371,7 +371,6 @@ const checkAdmin = async (conn, from, sender) => {
         const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
         const { version } = await fetchLatestBaileysVersion()
 
-        // ===== CONEXIÓN CON OPCIONES MEJORADAS =====
         const sock = makeWASocket({
             version,
             logger: P({ level: 'silent' }),
@@ -384,7 +383,6 @@ const checkAdmin = async (conn, from, sender) => {
             msgRetryCounterCache,
             userDevicesCache,
             markOnlineOnConnect: true,
-            // ===== OPCIONES PARA CONEXIÓN ESTABLE =====
             keepAliveIntervalMs: 30000,
             connectTimeoutMs: 60000,
             retryRequestDelayMs: 500,
@@ -416,18 +414,25 @@ const checkAdmin = async (conn, from, sender) => {
                 }, 5000)
             }
 
-            // ===== CONEXIÓN EXITOSA =====
             if (connection === 'open') {
                 sock.isInit = true
                 sock.userId = decodeJid(sock.user.id)
-                if (!global.conns.find(c => c.userId === sock.userId)) global.conns.push(sock)
-                await client.sendMessage(m.key.remoteJid, { text: '✅ Sub-bot conectado.' }, { quoted: m })
+                
+                // Guardar en array global
+                if (!global.conns.find(c => c.userId === sock.userId)) {
+                    global.conns.push(sock)
+                }
+                
+                console.log(chalk.green(`✅ Sub-bot ${id} conectado`))
+                await client.sendMessage(m.key.remoteJid, { text: `✅ Sub-bot ${id} conectado` }, { quoted: m })
             }
 
-            // ===== AUTO-RECONEXIÓN MEJORADA =====
             if (connection === 'close') {
                 const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
                 console.log(chalk.yellow(`⚠️ Sub-bot ${id} desconectado - Código: ${reason}`))
+                
+                // Eliminar del array global
+                global.conns = global.conns.filter(c => c.userId !== sock.userId)
                 
                 if (reason !== DisconnectReason.loggedOut) {
                     console.log(chalk.cyan(`🔄 Reconectando ${id} en 5 segundos...`))
@@ -447,7 +452,12 @@ const checkAdmin = async (conn, from, sender) => {
                 await processMessage(message, `${message.key.remoteJid}-${message.key.id}`, sock, '!')
             } catch (e) {}
         })
-    } catch (e) {}
+
+        return sock
+
+    } catch (e) {
+        console.error('Error:', e)
+    }
 }
 
 
@@ -642,7 +652,7 @@ const checkAdmin = async (conn, from, sender) => {
                     }
 
                     if (!commandFound && usedPrefix) {
-                        reply(`*🌴 Este Comando No Esta En Mi Base De Datos*: *${command}*\n\n> _Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo._`)
+                        reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
                     }
                     break
             }
