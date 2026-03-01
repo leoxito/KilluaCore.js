@@ -5,15 +5,16 @@ import { Boom } from '@hapi/boom'
 import fs from 'fs'
 import path from 'path'
 import NodeCache from 'node-cache'
+import { fileURLToPath } from 'url'
 
-const __dirname = path.dirname(new URL(import.meta.url).pathname)
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export class SubBot {
     constructor(mainConn, mainNumber) {
         this.mainConn = mainConn
         this.mainNumber = mainNumber
         this.subs = new Map()
-        this.configFile = path.join(__dirname, '.libreria/subbots.json')
+        this.configFile = path.join(__dirname, '../../.libreria/subbots.json')
         this.cargarConfig()
     }
 
@@ -21,9 +22,9 @@ export class SubBot {
         try {
             if (fs.existsSync(this.configFile)) {
                 this.config = JSON.parse(fs.readFileSync(this.configFile, 'utf8'))
+                console.log(chalk.cyan(`📋 Sub-bots cargados: ${this.config.subs.length}`))
             } else {
                 this.config = { subs: [], max: 15 }
-                fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2))
             }
         } catch (e) {
             this.config = { subs: [], max: 15 }
@@ -31,7 +32,9 @@ export class SubBot {
     }
 
     guardarConfig() {
-        fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2))
+        try {
+            fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2))
+        } catch (e) {}
     }
 
     async agregar(numero, nombre) {
@@ -41,6 +44,7 @@ export class SubBot {
 
         try {
             const { state, saveCreds } = await useMultiFileAuthState(`Subs/${numero}`)
+            
             const conn = makeWASocket({
                 logger: P({ level: 'silent' }),
                 auth: state,
@@ -58,7 +62,7 @@ export class SubBot {
                 if (connection === 'open') {
                     console.log(chalk.green(`✅ Sub: ${nombre}`))
                     await conn.sendMessage(numero + '@s.whatsapp.net', { 
-                        text: `✅ Eres sub-bot de ${global.botName}\n👑 Owner: ${this.mainNumber}` 
+                        text: `✅ Eres sub-bot de ${global.botName}` 
                     })
                     if (this.mainConn) {
                         await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', { 
@@ -84,14 +88,18 @@ export class SubBot {
                     const codigo = code.match(/.{1,4}/g)?.join('-')
                     if (this.mainConn) {
                         await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', { 
-                            text: `🔑 Código para ${nombre}:\n${codigo}` 
+                            text: `🔑 Código para ${nombre}: ${codigo}` 
                         })
                     }
                 }, 2000)
             }
 
-            this.config.subs.push({ numero, nombre })
-            this.guardarConfig()
+            const existe = this.config.subs.find(s => s.numero === numero)
+            if (!existe) {
+                this.config.subs.push({ numero, nombre })
+                this.guardarConfig()
+            }
+            
             return { ok: true }
 
         } catch (e) {
