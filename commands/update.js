@@ -1,5 +1,14 @@
-case 'update': case 'up':
-                        if (!global.owner.some(o => sender.includes(o[0]))) return reply(`*🌴 Este Comandos No Esta Disponible En Mi Base De Datos*: *${command}*\n\n> _Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles._`)
-                        await reply('Reiniciando sistema...')
-                        process.exit(0)
-                        break
+case 'update': case 'up': {
+    // Resolver el JID del remitente
+    const resolvedSender = await resolveLidToPnJid(conn, from, sender)
+    const senderNumber = resolvedSender.split('@')[0]
+    
+    // Verificar si es owner
+    if (!global.owner.includes(senderNumber)) {
+        return reply(`*🌴 Este Comando No Esta Disponible En Mi Base De Datos*: *${command}*\n\n> _Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles._`)
+    }
+    
+    await reply('🔄 Reiniciando sistema...')
+    process.exit(0)
+    break
+}
