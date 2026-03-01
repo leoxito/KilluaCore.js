@@ -271,16 +271,15 @@ async function startSubBot(m, client, phone = '', metodo = 1) {
             }
 
             if (connection === 'open') {
-                sock.isInit = true
-                sock.userId = decodeJid(sock.user.id)
-                
-                if (!global.conns.find(c => c.userId === sock.userId)) {
-                    global.conns.push(sock)
-                }
-                
-                console.log(chalk.green(`✅ Sub-bot ${id} conectado`))
-                await client.sendMessage(m.key.remoteJid, { text: `✅ Sub-bot ${id} conectado` }, { quoted: m })
-            }
+    sock.isInit = true
+    sock.userId = decodeJid(sock.user.id)
+    
+    if (!global.conns.find(c => c.userId === sock.userId)) {
+        global.conns.push(sock)
+    }
+    
+    console.log(chalk.green(`✅ Sub-bot ${id} conectado`))
+}
 
             if (connection === 'close') {
                 const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
