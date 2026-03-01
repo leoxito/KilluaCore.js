@@ -30,6 +30,7 @@ import readline from 'readline'
 import qrcode from "qrcode"
 import NodeCache from 'node-cache'
 import * as crypto from 'crypto';
+import { SubBot } from './src/sistema/subbotManager.js'
 
 let messageCache = new Map()
 const fastCache = new Map();
@@ -364,10 +365,10 @@ const checkAdmin = async (conn, from, sender) => {
 
 
         const settings = global.db.data.settings[conn.user.jid] || {}
-        
-        // ===== CORRECCIÓN: DETECCIÓN DE OWNER =====
-                const senderNumber = realSender.split('@')[0]
-                const isOwner = global.owner.includes(senderNumber)
+
+        // ===== DETECCIÓN DE OWNER =====
+        const senderNumber = realSender.split('@')[0]
+        const isOwner = global.owner.includes(senderNumber)
 
         if (user && user.banned && !isOwner) return 
 
@@ -377,24 +378,24 @@ const checkAdmin = async (conn, from, sender) => {
 
         if (!isGroup && settings.antiprivado && !isOwner) return
 
-                   const type = Object.keys(msg.message).find(v => v !== 'messageContextInfo' && v !== 'senderKeyDistributionMessage')
-if (!type) return
+        const type = Object.keys(msg.message).find(v => v !== 'messageContextInfo' && v !== 'senderKeyDistributionMessage')
+        if (!type) return
 
-let body = (type === 'conversation') ? msg.message.conversation :
-           (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text :
-           (type === 'imageMessage' || type === 'videoMessage' || type === 'documentMessage') ? msg.message[type].caption :
-           (type === 'buttonsResponseMessage') ? msg.message.buttonsResponseMessage.selectedButtonId :
-           (type === 'listResponseMessage') ? msg.message.listResponseMessage.singleSelectReply.selectedRowId :
-           (type === 'templateButtonReplyMessage') ? msg.message.templateButtonReplyMessage.selectedId :
-           (type === 'interactiveResponseMessage') ? JSON.parse(msg.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : 
-           (msg.message[type]?.text || msg.message[type]?.caption || '')
+        let body = (type === 'conversation') ? msg.message.conversation :
+                   (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text :
+                   (type === 'imageMessage' || type === 'videoMessage' || type === 'documentMessage') ? msg.message[type].caption :
+                   (type === 'buttonsResponseMessage') ? msg.message.buttonsResponseMessage.selectedButtonId :
+                   (type === 'listResponseMessage') ? msg.message.listResponseMessage.singleSelectReply.selectedRowId :
+                   (type === 'templateButtonReplyMessage') ? msg.message.templateButtonReplyMessage.selectedId :
+                   (type === 'interactiveResponseMessage') ? JSON.parse(msg.message.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson).id : 
+                   (msg.message[type]?.text || msg.message[type]?.caption || '')
 
-body = typeof body === 'string' ? body.trim() : ''
+        body = typeof body === 'string' ? body.trim() : ''
 
-                // ===== PRINTLOG ACTIVADO =====
-                printLog(msg, conn)
+        // ===== PRINTLOG ACTIVADO =====
+        printLog(msg, conn)
 
-                if (isGroup && global.db.data.chats[from]?.antilink) {
+        if (isGroup && global.db.data.chats[from]?.antilink) {
             const linkRegex = /https?:\/\/\S+|www\.\S+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}\/\S+/gi
             if (linkRegex.test(body)) {
                 const groupMetadata = groupCache.get(from) || await conn.groupMetadata(from).catch(() => null)
@@ -479,39 +480,51 @@ body = typeof body === 'string' ? body.trim() : ''
 }
 
     conn.ev.on('connection.update', (u) => {
-    if (u.connection === 'open') {
-    global.mainConn = conn
-    console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
-}
-
-    if (u.connection === 'close') {
-        const statusCode = new Boom(u.lastDisconnect?.error)?.output?.statusCode
-        console.log(chalk.white('Desconectado - Código:', statusCode))
-
-        if (statusCode !== DisconnectReason.loggedOut) {
-            console.log(chalk.cyan('⚡️ Reconectando en 3 segundos...'))
-            setTimeout(() => startBot(), 3000)
-        } else {
-            console.log(chalk.white('📂 Sesión cerrada. Borrando carpeta sessions...'))
-
-            const sessionsDir = './Sessions'
-            if (fs.existsSync(sessionsDir)) {
-                try {
-                    fs.rmSync(sessionsDir, { recursive: true, force: true })
-                    console.log(chalk.white('🧹 Carpeta sessions eliminada'))
-                } catch (e) {
-                    console.log(chalk.cyan('🗑 Error borrando sessions:', e.message))
-                }
-            }
-
-            console.log(chalk.white('🔄 Reinicia el bot manualmente'))
-            process.exit(0)
+        if (u.connection === 'open') {
+            global.mainConn = conn
+            console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
         }
-    }
-})
+
+        if (u.connection === 'close') {
+            const statusCode = new Boom(u.lastDisconnect?.error)?.output?.statusCode
+            console.log(chalk.white('Desconectado - Código:', statusCode))
+
+            if (statusCode !== DisconnectReason.loggedOut) {
+                console.log(chalk.cyan('⚡️ Reconectando en 3 segundos...'))
+                setTimeout(() => startBot(), 3000)
+            } else {
+                console.log(chalk.white('📂 Sesión cerrada. Borrando carpeta sessions...'))
+
+                const sessionsDir = './Sessions'
+                if (fs.existsSync(sessionsDir)) {
+                    try {
+                        fs.rmSync(sessionsDir, { recursive: true, force: true })
+                        console.log(chalk.white('🧹 Carpeta sessions eliminada'))
+                    } catch (e) {
+                        console.log(chalk.cyan('🗑 Error borrando sessions:', e.message))
+                    }
+                }
+
+                console.log(chalk.white('🔄 Reinicia el bot manualmente'))
+                process.exit(0)
+            }
+        }
+    })
 } 
 
 startBot()
+
+// ===== SISTEMA DE SUB-BOTS =====
+global.subManager = null
+
+// Iniciar sistema de sub-bots cuando el bot principal esté conectado
+setInterval(() => {
+    if (global.mainConn && global.mainConn.user && !global.subManager) {
+        const mainNumber = global.mainConn.user.id.split(':')[0]
+        global.subManager = new SubBot(global.mainConn, mainNumber)
+        console.log(chalk.green('📱 Sistema de sub-bots listo'))
+    }
+}, 5000)
 
 setInterval(async () => {
     if (global.db) await global.db.write()
