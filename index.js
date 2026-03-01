@@ -499,7 +499,10 @@ async function processMessage(msg, msgId, connCustom, customPrefix) {
                                    isOwner, isMod, msg, body, usedPrefix, commandText, command,
                                    realSender, senderNumber, settings, user, prefixList,
                                    global, console, Buffer, process } = context
-                            ${global.plugins[i]}
+                            
+                            switch (command) {
+                                ${global.plugins[i]}
+                            }
                         })()
                     `
                     
