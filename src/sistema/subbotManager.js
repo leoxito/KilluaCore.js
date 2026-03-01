@@ -13,7 +13,7 @@ export class SubBot {
         this.mainConn = mainConn
         this.mainNumber = mainNumber
         this.subs = new Map()
-        this.configFile = path.join(__dirname, '../subbots.json')
+        this.configFile = path.join(__dirname, '.libreria/subbots.json')
         this.cargarConfig()
     }
 
