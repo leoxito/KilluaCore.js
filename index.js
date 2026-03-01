@@ -358,11 +358,85 @@ const checkAdmin = async (conn, from, sender) => {
     })
 })       
 
+            async function startSubBot(m, client, phone = '', metodo = 1) {
+    try {
+        const userJid = m.key.participant || m.key.remoteJid
+        const id = phone ? phone.replace(/[^0-9]/g, '') : decodeJid(userJid).split('@')[0]
+        const sessionFolder = `./subs/${id}`
+        
+        if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder, { recursive: true })
+
+        const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
+        const { version } = await fetchLatestBaileysVersion()
+
+        const sock = makeWASocket({
+            version,
+            logger: P({ level: 'silent' }),
+            printQRInTerminal: false,
+            browser: Browsers.macOS('Chrome'),
+            auth: {
+                creds: state.creds,
+                keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'silent' })),
+            },
+            msgRetryCounterCache,
+            userDevicesCache,
+            markOnlineOnConnect: true
+        })
+
+        sock.ev.on('creds.update', saveCreds)
+
+        sock.ev.on('connection.update', async (s) => {
+            const { connection, lastDisconnect, qr } = s
+            
+            if (qr && metodo == 1) {
+                try {
+                    const Buffer = await qrcode.toBuffer(qr, { scale: 8 })
+                    await client.sendMessage(m.key.remoteJid, { image: Buffer, caption: '✨ *MODO QR*' }, { quoted: m })
+                } catch (e) {}
+            }
+
+            if (qr && metodo == 2) {
+                setTimeout(async () => {
+                    try {
+                        let code = await sock.requestPairingCode(id)
+                        code = code?.match(/.{1,4}/g)?.join('-') || code
+                        await client.sendMessage(m.key.remoteJid, { text: `🔐 *CÓDIGO:* ${code}` }, { quoted: m })
+                    } catch (e) {}
+                }, 5000)
+            }
+
+            if (connection === 'open') {
+                sock.isInit = true
+                sock.userId = decodeJid(sock.user.id)
+                if (!global.conns.find(c => c.userId === sock.userId)) global.conns.push(sock)
+                await client.sendMessage(m.key.remoteJid, { text: '✅ Sub-bot conectado.' }, { quoted: m })
+            }
+
+            if (connection === 'close') {
+                const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
+                if (reason !== DisconnectReason.loggedOut) {
+                    setTimeout(() => startSubBot(m, client, phone, metodo), 3000)
+                } else {
+                    if (fs.existsSync(sessionFolder)) fs.rmSync(sessionFolder, { recursive: true, force: true })
+                }
+            }
+        })
+
+        sock.ev.on('messages.upsert', async ({ messages }) => {
+            try {
+                const message = messages[0]
+                if (!message.message || message.key.fromMe) return
+                await processMessage(message, `${message.key.remoteJid}-${message.key.id}`, sock, '!')
+            } catch (e) {}
+        })
+    } catch (e) {}
+}
+
+
             async function processMessage(msg, msgId, connCustom, customPrefix) {
     const conn = connCustom || global.mainConn
-    if (!conn || !msg || !msg.key || !msg.message) return
-
-    const prefixList = Array.isArray(global.prefix) ? global.prefix : [global.prefix]
+    if (!conn || !msg || !msg.key) return
+    const usedPrefix = customPrefix || (global.prefix && global.prefix[0]) || '!'
 
     try {
         const from = msg.key.remoteJid
