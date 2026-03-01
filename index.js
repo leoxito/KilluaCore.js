@@ -636,18 +636,39 @@ const checkAdmin = async (conn, from, sender) => {
                 userStats.exp = 0 
             }                              
 
+            // ===== EJECUCIÓN DE COMANDOS MEJORADA =====
             switch (command) {      
                 default:
                     let commandFound = false
                     for (let i in global.plugins) {
                         try {
                             if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
-                                await eval(`(async () => { switch (command) { ${global.plugins[i]} } })()`)
-                                commandFound = true
-                                break
+                                // Crear contexto con todas las variables necesarias
+                                const context = {
+                                    conn, from, sender, pushName, reply, isGroup, text, q, args,
+                                    isOwner, isMod, msg, body, usedPrefix, commandText, command,
+                                    realSender, senderNumber, settings, user, chat, prefixList,
+                                    global, console, Buffer, process, require
+                                };
+                                
+                                // Ejecutar el comando con eval pasando el contexto
+                                const functionBody = `
+                                    (async () => {
+                                        const { conn, from, sender, pushName, reply, isGroup, text, q, args,
+                                               isOwner, isMod, msg, body, usedPrefix, commandText, command,
+                                               realSender, senderNumber, settings, user, chat, prefixList,
+                                               global, console, Buffer, process, require } = context;
+                                        ${global.plugins[i]}
+                                    })()
+                                `;
+                                
+                                await eval(functionBody);
+                                commandFound = true;
+                                break;
                             }
                         } catch (e) {
-                            console.error(e)
+                            console.error('Error ejecutando comando:', e);
+                            reply(`❌ Error: ${e.message}`);
                         }
                     }
 
@@ -667,6 +688,9 @@ const checkAdmin = async (conn, from, sender) => {
         if (u.connection === 'open') {
             global.mainConn = conn
             console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
+            
+            // Reconectar sub-bots después de 5 segundos
+            setTimeout(() => reconectarSubBots(), 5000)
         }
 
         if (u.connection === 'close') {
@@ -695,6 +719,38 @@ const checkAdmin = async (conn, from, sender) => {
         }
     })
 } 
+
+// ===== RECONECTAR SUB-BOTS AL INICIAR =====
+async function reconectarSubBots() {
+    if (!global.conns) global.conns = [];
+    
+    // Buscar carpetas en subSession
+    const subSessionDir = './subSession';
+    if (fs.existsSync(subSessionDir)) {
+        const carpetas = fs.readdirSync(subSessionDir);
+        
+        for (const carpeta of carpetas) {
+            const credsPath = join(subSessionDir, carpeta, 'creds.json');
+            if (fs.existsSync(credsPath)) {
+                console.log(chalk.cyan(`🔄 Reconectando sub-bot ${carpeta}...`));
+                
+                // Crear un mensaje simulado para startSubBot
+                const mockMsg = {
+                    key: {
+                        remoteJid: global.mainConn?.user?.id || '',
+                        participant: carpeta + '@s.whatsapp.net'
+                    },
+                    pushName: 'Sistema'
+                };
+                
+                // Iniciar sub-bot
+                setTimeout(() => {
+                    startSubBot(mockMsg, global.mainConn, carpeta, 2);
+                }, 2000);
+            }
+        }
+    }
+}
 
 startBot()
 
