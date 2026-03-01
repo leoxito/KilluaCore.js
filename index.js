@@ -15,7 +15,7 @@ import './src/core.js'
 import chalk from 'chalk'
 import { Boom } from '@hapi/boom'
 import fs, { existsSync, readFileSync, writeFileSync, watchFile, unwatchFile, unlinkSync, mkdirSync, readdirSync, statSync, watch } from 'fs'
-import { menuContent } from './src/sistema/menu.js';
+import { menuContent } from './src/sistema/menu.js'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import os from 'os'
@@ -29,15 +29,15 @@ import printLog from './src/sistema/consola.js'
 import readline from 'readline'
 import qrcode from "qrcode"
 import NodeCache from 'node-cache'
-import * as crypto from 'crypto';
+import * as crypto from 'crypto'
 
 let messageCache = new Map()
-const fastCache = new Map();
-const searchCache = new Map();
+const fastCache = new Map()
+const searchCache = new Map()
 
 global.mainConn = null
 global.plugins = {}
-global.conns = [] // Array para guardar sub-bots activos
+global.conns = []
 const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const groupCache = new NodeCache({ stdTTL: 600, checkperiod: 60 })
@@ -135,32 +135,32 @@ const execPromise = promisify(exec)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const databaseFile = join(__dirname, 'src', 'database','database.json')
-const reaccionesPath = join(dirname(fileURLToPath(import.meta.url)), 'src', 'database', 'reactions.json');
+const reaccionesPath = join(dirname(fileURLToPath(import.meta.url)), 'src', 'database', 'reactions.json')
 
-if (!existsSync(dirname(reaccionesPath))) mkdirSync(dirname(reaccionesPath), { recursive: true });
-if (!existsSync(reaccionesPath)) writeFileSync(reaccionesPath, JSON.stringify({}, null, 2));
+if (!existsSync(dirname(reaccionesPath))) mkdirSync(dirname(reaccionesPath), { recursive: true })
+if (!existsSync(reaccionesPath)) writeFileSync(reaccionesPath, JSON.stringify({}, null, 2))
 
 const loadPlugins = (directory) => {
     try {
-        const files = readdirSync(directory, { recursive: true });
+        const files = readdirSync(directory, { recursive: true })
         for (const file of files) {
             if (file.endsWith('.js')) {
-                const fullPath = join(directory, file);
-                global.plugins[file] = readFileSync(fullPath, 'utf8');
+                const fullPath = join(directory, file)
+                global.plugins[file] = readFileSync(fullPath, 'utf8')
             }
         }
     } catch (e) {}
-};
+}
 
-const commandsDir = join(__dirname, 'commands');
-if (!existsSync(commandsDir)) mkdirSync(commandsDir, { recursive: true });
-loadPlugins(commandsDir);
+const commandsDir = join(__dirname, 'commands')
+if (!existsSync(commandsDir)) mkdirSync(commandsDir, { recursive: true })
+loadPlugins(commandsDir)
 
 watch(commandsDir, { recursive: true }, (event, filename) => {
     if (filename && filename.endsWith('.js')) {
-        loadPlugins(commandsDir);
+        loadPlugins(commandsDir)
     }
-});
+})
 
 const cleanTmp = () => {
     const tempDir = join(__dirname, 'tmp')
@@ -215,7 +215,6 @@ if (existsSync(reaccionesPath)) {
     reaccionesData = JSON.parse(readFileSync(reaccionesPath, 'utf-8'))
 }
 
-// ===== FUNCIÓN STARTSUB-BOT MOVIDA FUERA DE STARTBOT =====
 async function startSubBot(m, client, phone = '', metodo = 1) {
     try {
         const userJid = m.key.participant || m.key.remoteJid
@@ -275,7 +274,6 @@ async function startSubBot(m, client, phone = '', metodo = 1) {
                 sock.isInit = true
                 sock.userId = decodeJid(sock.user.id)
                 
-                // Guardar en array global
                 if (!global.conns.find(c => c.userId === sock.userId)) {
                     global.conns.push(sock)
                 }
@@ -288,7 +286,6 @@ async function startSubBot(m, client, phone = '', metodo = 1) {
                 const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
                 console.log(chalk.yellow(`⚠️ Sub-bot ${id} desconectado - Código: ${reason}`))
                 
-                // Eliminar del array global
                 global.conns = global.conns.filter(c => c.userId !== sock.userId)
                 
                 if (reason !== DisconnectReason.loggedOut) {
@@ -342,82 +339,74 @@ async function processMessage(msg, msgId, connCustom, customPrefix) {
         if (!global.subBotCooldown) global.subBotCooldown = {}
 
         if (typeof global.db.data.settings[conn.user.jid] !== 'object') {
-    global.db.data.settings[conn.user.jid] = {
-        onlyowner: false,
-        antiprivado: false
-    }
-}
+            global.db.data.settings[conn.user.jid] = {
+                onlyowner: false,
+                antiprivado: false
+            }
+        }
 
         let user = global.db.data.users[realSender]
 
         if (typeof user !== 'object') {
-    global.db.data.users[realSender] = {
-        name: pushName,
-        banned: false,
-        level: 1,
-        exp: 0,
-        coin: 0,
-        totalCommands: 0,
-        birthday: 'Sin especificar',
-        gender: 'Sin especificar',
-        stickerPack: '',
-        stickerAuthor: '',
-        partner: null
-    }
-} else {
-    if (pushName !== 'Usuario' && user.name !== pushName) {
-        user.name = pushName
-    }
-    if (!('banned' in user)) user.banned = false
-    if (!('level' in user)) user.level = 1
-    if (!('exp' in user)) user.exp = 0
-    if (!('coin' in user)) user.coin = 0
-    if (!('totalCommands' in user)) user.totalCommands = 0
-    if (!('birthday' in user)) user.birthday = 'Sin especificar'
-    if (!('gender' in user)) user.gender = 'Sin especificar'
-    if (!('stickerPack' in user)) user.stickerPack = ''
-    if (!('stickerAuthor' in user)) user.stickerAuthor = ''
-    if (!('partner' in user)) user.partner = null
-}
-
-
-                if (isGroup) {
-    if (!global.db.data.chats[from]) {
-        global.db.data.chats[from] = {
-            welcome: false,
-            bye: false,
-            antilink: false,
-            economy: true,
-            modoadmin: false,
-            sWelcome: '',
-            sBye: ''
+            global.db.data.users[realSender] = {
+                name: pushName,
+                banned: false,
+                level: 1,
+                exp: 0,
+                coin: 0,
+                totalCommands: 0,
+                birthday: 'Sin especificar',
+                gender: 'Sin especificar',
+                stickerPack: '',
+                stickerAuthor: '',
+                partner: null
+            }
+        } else {
+            if (pushName !== 'Usuario' && user.name !== pushName) {
+                user.name = pushName
+            }
+            if (!('banned' in user)) user.banned = false
+            if (!('level' in user)) user.level = 1
+            if (!('exp' in user)) user.exp = 0
+            if (!('coin' in user)) user.coin = 0
+            if (!('totalCommands' in user)) user.totalCommands = 0
+            if (!('birthday' in user)) user.birthday = 'Sin especificar'
+            if (!('gender' in user)) user.gender = 'Sin especificar'
+            if (!('stickerPack' in user)) user.stickerPack = ''
+            if (!('stickerAuthor' in user)) user.stickerAuthor = ''
+            if (!('partner' in user)) user.partner = null
         }
-    }
 
-    let chat = global.db.data.chats[from]
-    if (chat) {
-        if (!('welcome' in chat)) chat.welcome = false
-        if (!('bye' in chat)) chat.bye = false
-        if (!('antilink' in chat)) chat.antilink = false
-        if (!('economy' in chat)) chat.economy = true 
-        if (!('sWelcome' in chat)) chat.sWelcome = ''
-        if (!('sBye' in chat)) chat.sBye = ''
-    }
-}
+        if (isGroup) {
+            if (!global.db.data.chats[from]) {
+                global.db.data.chats[from] = {
+                    welcome: false,
+                    bye: false,
+                    antilink: false,
+                    economy: true,
+                    modoadmin: false,
+                    sWelcome: '',
+                    sBye: ''
+                }
+            }
 
+            let chat = global.db.data.chats[from]
+            if (chat) {
+                if (!('welcome' in chat)) chat.welcome = false
+                if (!('bye' in chat)) chat.bye = false
+                if (!('antilink' in chat)) chat.antilink = false
+                if (!('economy' in chat)) chat.economy = true 
+                if (!('sWelcome' in chat)) chat.sWelcome = ''
+                if (!('sBye' in chat)) chat.sBye = ''
+            }
+        }
 
         const settings = global.db.data.settings[conn.user.jid] || {}
-
-        // ===== DETECCIÓN DE OWNER =====
         const senderNumber = realSender.split('@')[0]
         const isOwner = global.owner.includes(senderNumber)
 
         if (user && user.banned && !isOwner) return 
-
-        if (settings.onlyowner && !isOwner) {
-            return
-        }
-
+        if (settings.onlyowner && !isOwner) return
         if (!isGroup && settings.antiprivado && !isOwner) return
 
         const type = Object.keys(msg.message).find(v => v !== 'messageContextInfo' && v !== 'senderKeyDistributionMessage')
@@ -434,7 +423,6 @@ async function processMessage(msg, msgId, connCustom, customPrefix) {
 
         body = typeof body === 'string' ? body.trim() : ''
 
-        // ===== PRINTLOG ACTIVADO =====
         printLog(msg, conn)
 
         if (isGroup && global.db.data.chats[from]?.antilink) {
@@ -492,39 +480,36 @@ async function processMessage(msg, msgId, connCustom, customPrefix) {
                 userStats.exp = 0 
             }                              
 
-            // ===== EJECUCIÓN DE COMANDOS MEJORADA =====
             switch (command) {      
                 default:
                     let commandFound = false
                     for (let i in global.plugins) {
                         try {
                             if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
-                                // Crear contexto con todas las variables necesarias
                                 const context = {
                                     conn, from, sender, pushName, reply, isGroup, text, q, args,
                                     isOwner, isMod, msg, body, usedPrefix, commandText, command,
-                                    realSender, senderNumber, settings, user, chat, prefixList,
+                                    realSender, senderNumber, settings, user, prefixList,
                                     global, console, Buffer, process, require
-                                };
+                                }
                                 
-                                // Ejecutar el comando con eval pasando el contexto
                                 const functionBody = `
                                     (async () => {
                                         const { conn, from, sender, pushName, reply, isGroup, text, q, args,
                                                isOwner, isMod, msg, body, usedPrefix, commandText, command,
-                                               realSender, senderNumber, settings, user, chat, prefixList,
-                                               global, console, Buffer, process, require } = context;
+                                               realSender, senderNumber, settings, user, prefixList,
+                                               global, console, Buffer, process, require } = context
                                         ${global.plugins[i]}
                                     })()
-                                `;
+                                `
                                 
-                                await eval(functionBody);
-                                commandFound = true;
-                                break;
+                                await eval(functionBody)
+                                commandFound = true
+                                break
                             }
                         } catch (e) {
-                            console.error('Error ejecutando comando:', e);
-                            reply(`❌ Error: ${e.message}`);
+                            console.error('Error ejecutando comando:', e)
+                            reply(`❌ Error: ${e.message}`)
                         }
                     }
 
@@ -566,76 +551,76 @@ async function startBot() {
     console.info = () => {}
 
     const conn = makeWASocket({
-    version,
-    logger: P({ level: 'silent' }),
-    printQRInTerminal: opcion === '1',
-    auth: { 
-        creds: state.creds, 
-        keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'silent' })) 
-    },
-    browser: ['Ubuntu', 'Chrome', '121.0.6167.160'],
-    syncFullHistory: false,
-    shouldSyncHistoryMessage: () => false,
-    markOnlineOnConnect: true,
-    keepAliveIntervalMs: 30000, 
-    defaultQueryTimeoutMs: 0,
-    connectTimeoutMs: 60000,
-    retryRequestDelayMs: 500,
-    generateHighQualityLinkPreview: true,
-    msgRetryCounterCache
-})
-global.mainConn = conn
+        version,
+        logger: P({ level: 'silent' }),
+        printQRInTerminal: opcion === '1',
+        auth: { 
+            creds: state.creds, 
+            keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'silent' })) 
+        },
+        browser: ['Ubuntu', 'Chrome', '121.0.6167.160'],
+        syncFullHistory: false,
+        shouldSyncHistoryMessage: () => false,
+        markOnlineOnConnect: true,
+        keepAliveIntervalMs: 30000, 
+        defaultQueryTimeoutMs: 0,
+        connectTimeoutMs: 60000,
+        retryRequestDelayMs: 500,
+        generateHighQualityLinkPreview: true,
+        msgRetryCounterCache
+    })
+    global.mainConn = conn
 
-setInterval(async () => {
-    if (conn.user) {
-        await conn.sendPresenceUpdate('available')
-    }
-}, 60000)
+    setInterval(async () => {
+        if (conn.user) {
+            await conn.sendPresenceUpdate('available')
+        }
+    }, 60000)
 
     conn.getName = (jid, withoutContact = false) => {
-    jid = decodeJid(jid) || ''
-    withoutContact = conn.withoutContact || withoutContact
-    let v
-    if (typeof jid === 'string' && jid.endsWith('@g.us')) return new Promise(async (resolve) => {
-        v = global.db.data.chats[jid] || {}
-        if (v.name || v.subject) return resolve(v.name || v.subject)
+        jid = decodeJid(jid) || ''
+        withoutContact = conn.withoutContact || withoutContact
+        let v
+        if (typeof jid === 'string' && jid.endsWith('@g.us')) return new Promise(async (resolve) => {
+            v = global.db.data.chats[jid] || {}
+            if (v.name || v.subject) return resolve(v.name || v.subject)
 
-        const cached = groupCache.get(jid)
-        if (cached) return resolve(cached.subject || cached.name)
+            const cached = groupCache.get(jid)
+            if (cached) return resolve(cached.subject || cached.name)
 
-        try {
-            const metadata = await conn.groupMetadata(jid)
-            groupCache.set(jid, metadata)
-            resolve(metadata.name || metadata.subject)
-        } catch {
-            resolve(jid.split('@')[0])
-        }
-    })
-    else v = jid === '0@s.whatsapp.net' ? { jid, name: 'WhatsApp' } : jid === decodeJid(conn.user?.id) ? conn.user : (global.db.data.users[jid] || {})
-    return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || (typeof jid === 'string' ? jid.split('@')[0] : '')
-}
-
-const getAdmins = (participants) => {
-    return participants.filter(p => p.admin !== null).map(p => p.id)
-}
-
-const checkAdmin = async (conn, from, sender) => {
-    try {
-        const metadata = groupCache.get(from) || await conn.groupMetadata(from).catch(() => null)
-        if (!metadata) return { isUserAdmin: false, isBotAdmin: false }
-
-        groupCache.set(from, metadata)
-        const admins = getAdmins(metadata.participants)
-        const botId = decodeJid(conn.user.id)
-
-        return { 
-            isUserAdmin: admins.includes(decodeJid(sender)), 
-            isBotAdmin: admins.includes(botId) 
-        }
-    } catch {
-        return { isUserAdmin: false, isBotAdmin: false }
+            try {
+                const metadata = await conn.groupMetadata(jid)
+                groupCache.set(jid, metadata)
+                resolve(metadata.name || metadata.subject)
+            } catch {
+                resolve(jid.split('@')[0])
+            }
+        })
+        else v = jid === '0@s.whatsapp.net' ? { jid, name: 'WhatsApp' } : jid === decodeJid(conn.user?.id) ? conn.user : (global.db.data.users[jid] || {})
+        return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || (typeof jid === 'string' ? jid.split('@')[0] : '')
     }
-}
+
+    const getAdmins = (participants) => {
+        return participants.filter(p => p.admin !== null).map(p => p.id)
+    }
+
+    const checkAdmin = async (conn, from, sender) => {
+        try {
+            const metadata = groupCache.get(from) || await conn.groupMetadata(from).catch(() => null)
+            if (!metadata) return { isUserAdmin: false, isBotAdmin: false }
+
+            groupCache.set(from, metadata)
+            const admins = getAdmins(metadata.participants)
+            const botId = decodeJid(conn.user.id)
+
+            return { 
+                isUserAdmin: admins.includes(decodeJid(sender)), 
+                isBotAdmin: admins.includes(botId) 
+            }
+        } catch {
+            return { isUserAdmin: false, isBotAdmin: false }
+        }
+    }
 
     if (!fs.existsSync(`./Sessions/creds.json`)) {
         if (opcion === '2' || methodCode) {
@@ -670,26 +655,23 @@ const checkAdmin = async (conn, from, sender) => {
 
     conn.ev.on('creds.update', saveCreds)
 
-
-                 conn.ev.on('messages.upsert', async (m) => {
-    if (!m.messages?.[0] || m.type !== 'notify' || m.messages[0].key.remoteJid === 'status@broadcast') return
-    const msg = m.messages[0]
-    if (!msg.message) return
-    setImmediate(async () => {
-        try {
-            await processMessage(msg, `${msg.key.remoteJid}-${msg.key.id}`)
-        } catch (e) {
-            console.error(e)
-        }
-    })
-})       
+    conn.ev.on('messages.upsert', async (m) => {
+        if (!m.messages?.[0] || m.type !== 'notify' || m.messages[0].key.remoteJid === 'status@broadcast') return
+        const msg = m.messages[0]
+        if (!msg.message) return
+        setImmediate(async () => {
+            try {
+                await processMessage(msg, `${msg.key.remoteJid}-${msg.key.id}`)
+            } catch (e) {
+                console.error(e)
+            }
+        })
+    })       
 
     conn.ev.on('connection.update', (u) => {
         if (u.connection === 'open') {
             global.mainConn = conn
             console.log(chalk.cyan(`🌱 ${global.botName} conectado correctamente`))
-            
-            // Reconectar sub-bots después de 5 segundos
             setTimeout(() => reconectarSubBots(), 5000)
         }
 
@@ -720,33 +702,29 @@ const checkAdmin = async (conn, from, sender) => {
     })
 } 
 
-// ===== RECONECTAR SUB-BOTS AL INICIAR =====
 async function reconectarSubBots() {
-    if (!global.conns) global.conns = [];
+    if (!global.conns) global.conns = []
     
-    // Buscar carpetas en subSession
-    const subSessionDir = './subSession';
+    const subSessionDir = './subSession'
     if (fs.existsSync(subSessionDir)) {
-        const carpetas = fs.readdirSync(subSessionDir);
+        const carpetas = fs.readdirSync(subSessionDir)
         
         for (const carpeta of carpetas) {
-            const credsPath = join(subSessionDir, carpeta, 'creds.json');
+            const credsPath = join(subSessionDir, carpeta, 'creds.json')
             if (fs.existsSync(credsPath)) {
-                console.log(chalk.cyan(`🔄 Reconectando sub-bot ${carpeta}...`));
+                console.log(chalk.cyan(`🔄 Reconectando sub-bot ${carpeta}...`))
                 
-                // Crear un mensaje simulado para startSubBot
                 const mockMsg = {
                     key: {
                         remoteJid: global.mainConn?.user?.id || '',
                         participant: carpeta + '@s.whatsapp.net'
                     },
                     pushName: 'Sistema'
-                };
+                }
                 
-                // Iniciar sub-bot
                 setTimeout(() => {
-                    startSubBot(mockMsg, global.mainConn, carpeta, 2);
-                }, 2000);
+                    startSubBot(mockMsg, global.mainConn, carpeta, 2)
+                }, 2000)
             }
         }
     }
