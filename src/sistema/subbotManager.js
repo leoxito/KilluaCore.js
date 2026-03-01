@@ -11,13 +11,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export class SubBot {
     constructor(mainConn, mainNumber) {
-        this.mainConn = mainConn
-        this.mainNumber = mainNumber
-        this.subs = new Map()
+        this.mainConn = mainConn      // Conexión del bot principal
+        this.mainNumber = mainNumber   // Número del bot principal
+        this.subs = new Map()          // Aquí guarda los sub-bots activos
         this.configFile = path.join(__dirname, '../../.libreria/subbots.json')
         this.cargarConfig()
     }
 
+    // Carga la configuración guardada
     cargarConfig() {
         try {
             if (fs.existsSync(this.configFile)) {
@@ -31,18 +32,22 @@ export class SubBot {
         }
     }
 
+    // Guarda la configuración
     guardarConfig() {
         try {
             fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2))
         } catch (e) {}
     }
 
+    // Agrega un nuevo sub-bot
     async agregar(numero, nombre) {
+        // Verifica límite
         if (this.subs.size >= this.config.max) {
             return { ok: false, msg: `❌ Límite: ${this.config.max}` }
         }
 
         try {
+            // Crea la conexión del sub-bot (en carpeta separada Subs/)
             const { state, saveCreds } = await useMultiFileAuthState(`Subs/${numero}`)
             
             const conn = makeWASocket({
@@ -54,16 +59,20 @@ export class SubBot {
 
             conn.subInfo = { numero, nombre, main: this.mainNumber }
 
+            // Guarda credenciales cuando cambien
             conn.ev.on('creds.update', saveCreds)
 
+            // Maneja eventos de conexión del sub-bot
             conn.ev.on('connection.update', async (u) => {
                 const { connection, lastDisconnect } = u
                 
                 if (connection === 'open') {
                     console.log(chalk.green(`✅ Sub: ${nombre}`))
+                    // Mensaje al sub-bot cuando se conecta
                     await conn.sendMessage(numero + '@s.whatsapp.net', { 
                         text: `✅ Eres sub-bot de ${global.botName}` 
                     })
+                    // Notifica al bot principal
                     if (this.mainConn) {
                         await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', { 
                             text: `✅ Sub conectado: ${nombre}` 
@@ -74,26 +83,17 @@ export class SubBot {
                 if (connection === 'close') {
                     const code = new Boom(lastDisconnect?.error)?.output?.statusCode
                     this.subs.delete(numero)
+                    // Auto-reconexión si no fue un logout
                     if (code !== DisconnectReason.loggedOut) {
                         setTimeout(() => this.agregar(numero, nombre), 5000)
                     }
                 }
             })
 
+            // Guarda el sub-bot en el Map
             this.subs.set(numero, { conn, nombre })
 
-            if (!fs.existsSync(`Subs/${numero}/creds.json`)) {
-                setTimeout(async () => {
-                    const code = await conn.requestPairingCode(numero)
-                    const codigo = code.match(/.{1,4}/g)?.join('-')
-                    if (this.mainConn) {
-                        await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', { 
-                            text: `🔑 Código para ${nombre}: ${codigo}` 
-                        })
-                    }
-                }, 2000)
-            }
-
+            // Guarda en configuración si es nuevo
             const existe = this.config.subs.find(s => s.numero === numero)
             if (!existe) {
                 this.config.subs.push({ numero, nombre })
@@ -107,6 +107,7 @@ export class SubBot {
         }
     }
 
+    // Lista los sub-bots activos
     listar() {
         return Array.from(this.subs.entries()).map(([num, data]) => ({
             numero: num,
@@ -114,6 +115,7 @@ export class SubBot {
         }))
     }
 
+    // Detiene un sub-bot
     detener(numero) {
         if (this.subs.has(numero)) {
             this.subs.get(numero).conn.ws.close()
