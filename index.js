@@ -362,13 +362,16 @@ const checkAdmin = async (conn, from, sender) => {
     try {
         const userJid = m.key.participant || m.key.remoteJid
         const id = phone ? phone.replace(/[^0-9]/g, '') : decodeJid(userJid).split('@')[0]
-        const sessionFolder = `./subs/${id}`
+        
+        // ===== CARPETA SEPARADA PARA SUB-BOTS (CAMBIADA) =====
+        const sessionFolder = `./subSession/${id}`
 
         if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder, { recursive: true })
 
         const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
         const { version } = await fetchLatestBaileysVersion()
 
+        // ===== CONEXIÓN CON OPCIONES MEJORADAS =====
         const sock = makeWASocket({
             version,
             logger: P({ level: 'silent' }),
@@ -380,7 +383,15 @@ const checkAdmin = async (conn, from, sender) => {
             },
             msgRetryCounterCache,
             userDevicesCache,
-            markOnlineOnConnect: true
+            markOnlineOnConnect: true,
+            // ===== OPCIONES PARA CONEXIÓN ESTABLE =====
+            keepAliveIntervalMs: 30000,
+            connectTimeoutMs: 60000,
+            retryRequestDelayMs: 500,
+            defaultQueryTimeoutMs: 0,
+            generateHighQualityLinkPreview: false,
+            shouldSyncHistoryMessage: () => false,
+            syncFullHistory: false
         })
 
         sock.ev.on('creds.update', saveCreds)
@@ -405,6 +416,7 @@ const checkAdmin = async (conn, from, sender) => {
                 }, 5000)
             }
 
+            // ===== CONEXIÓN EXITOSA =====
             if (connection === 'open') {
                 sock.isInit = true
                 sock.userId = decodeJid(sock.user.id)
@@ -412,12 +424,18 @@ const checkAdmin = async (conn, from, sender) => {
                 await client.sendMessage(m.key.remoteJid, { text: '✅ Sub-bot conectado.' }, { quoted: m })
             }
 
+            // ===== AUTO-RECONEXIÓN MEJORADA =====
             if (connection === 'close') {
                 const reason = new Boom(lastDisconnect?.error)?.output?.statusCode
+                console.log(chalk.yellow(`⚠️ Sub-bot ${id} desconectado - Código: ${reason}`))
+                
                 if (reason !== DisconnectReason.loggedOut) {
-                    setTimeout(() => startSubBot(m, client, phone, metodo), 3000)
+                    console.log(chalk.cyan(`🔄 Reconectando ${id} en 5 segundos...`))
+                    setTimeout(() => startSubBot(m, client, id, metodo), 5000)
                 } else {
-                    if (fs.existsSync(sessionFolder)) fs.rmSync(sessionFolder, { recursive: true, force: true })
+                    if (fs.existsSync(sessionFolder)) {
+                        fs.rmSync(sessionFolder, { recursive: true, force: true })
+                    }
                 }
             }
         })
@@ -437,7 +455,6 @@ const checkAdmin = async (conn, from, sender) => {
     const conn = connCustom || global.mainConn
     if (!conn || !msg || !msg.key) return
     
-    // Definir prefixList correctamente
     const prefixList = Array.isArray(global.prefix) ? global.prefix : [global.prefix || '!']
     const usedPrefix = customPrefix || prefixList.find(p => {
         const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
@@ -574,7 +591,6 @@ const checkAdmin = async (conn, from, sender) => {
             }
         }
 
-        // ===== CORREGIDO: usamos usedPrefix que ya definimos =====
         const prefixCommands = ['prefix', 'prefijo', 'Prefijo', 'Prefix', 'PREFIJO']
         if (prefixCommands.includes(body.toLowerCase())) {
             return conn.sendMessage(from, { text: `✰ *prefijo:* ${usedPrefix}` }, { quoted: msg })
@@ -626,7 +642,7 @@ const checkAdmin = async (conn, from, sender) => {
                     }
 
                     if (!commandFound && usedPrefix) {
-                        reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
+                        reply(`*🌴 Este Comando No Esta En Mi Base De Datos*: *${command}*\n\n> _Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo._`)
                     }
                     break
             }
