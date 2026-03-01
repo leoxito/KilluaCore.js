@@ -517,7 +517,7 @@ async function processMessage(msg, msgId, connCustom, customPrefix) {
             reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
         }
         break
-}
+
             }
         }
     } catch (err) { 
