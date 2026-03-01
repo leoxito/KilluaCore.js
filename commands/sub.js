@@ -1,43 +1,64 @@
-// ===== SUB-BOTS =====
-case 'sub': {
-    if (!isOwner) return reply('❌ Solo el owner')
-    
+case 'code': {
     const args = text.split(' ')
-    if (args.length < 2) return reply(`📱 Uso: ${usedPrefix}sub [número] [nombre]\nEj: ${usedPrefix}sub 521234567890 Bot2`)
+    let numero = args[0]
     
-    const numero = args[0].replace(/\D/g, '')
-    const nombre = args[1] || 'Sub'
-    
-    if (!global.subManager) return reply('❌ Sistema no listo')
-    
-    const res = await global.subManager.agregar(numero, nombre)
-    reply(res.ok ? '✅ Procesando...' : res.msg)
-    break
-}
-
-case 'subs': {
-    if (!isOwner) return reply('❌ Solo el owner')
-    if (!global.subManager) return reply('❌ Sistema no listo')
-    
-    const lista = global.subManager.listar()
-    let msg = `📋 *Sub-Bots:* ${lista.length}/${global.subManager.config.max}\n`
-    lista.forEach(s => msg += `• ${s.nombre}: ${s.numero}\n`)
-    reply(msg)
-    break
-}
-
-case 'delsub': {
-    if (!isOwner) return reply('❌ Solo el owner')
-    
-    const numero = text.replace(/\D/g, '')
-    if (!numero) return reply(`📱 Uso: ${usedPrefix}delsub [número]`)
-    
-    if (!global.subManager) return reply('❌ Sistema no listo')
-    
-    if (global.subManager.detener(numero)) {
-        reply(`✅ Sub ${numero} eliminado`)
+    // Si no proporciona número, usar el suyo propio
+    if (!numero) {
+        numero = realSender.split('@')[0]
     } else {
-        reply('❌ No encontrado')
+        numero = numero.replace(/\D/g, '')
+    }
+    
+    // Verificar si ya es sub-bot
+    if (global.subManager && global.subManager.subs.has(numero)) {
+        return reply('❌ Este número ya es un sub-bot activo')
+    }
+    
+    // Verificar límite de sub-bots
+    if (global.subManager && global.subManager.subs.size >= global.subManager.config.max) {
+        return reply(`❌ Límite de ${global.subManager.config.max} sub-bots alcanzado`)
+    }
+    
+    reply(`⏳ *Generando código para ${numero}...*\n\n` +
+          `⚠️ Espera unos segundos, te enviaré el código por WhatsApp`)
+    
+    try {
+        // Conexión temporal para generar código
+        const { state } = await useMultiFileAuthState(`Temp/${numero}`)
+        
+        const tempConn = makeWASocket({
+            logger: P({ level: 'silent' }),
+            auth: state,
+            browser: ['CodeGen', 'Chrome', '121.0'],
+            msgRetryCounterCache: new NodeCache()
+        })
+        
+        setTimeout(async () => {
+            try {
+                const code = await tempConn.requestPairingCode(numero)
+                const codigo = code.match(/.{1,4}/g)?.join('-') || code
+                
+                // Enviar código al usuario
+                await reply(`🔑 *TU CÓDIGO DE SUB-BOT*\n\n` +
+                            `📱 *Número:* ${numero}\n` +
+                            `🔢 *Código:* ${codigo}\n\n` +
+                            `📝 *Instrucciones:*\n` +
+                            `1. Abre WhatsApp en ese número\n` +
+                            `2. Ve a Dispositivos vinculados\n` +
+                            `3. Pulsa en "Vincular dispositivo"\n` +
+                            `4. Ingresa el código: ${codigo}\n\n` +
+                            `✅ Serás sub-bot de ${global.botName}`)
+                
+                // Cerrar conexión temporal
+                tempConn.ws.close()
+                
+            } catch (e) {
+                reply(`❌ Error generando código: ${e.message}`)
+            }
+        }, 2000)
+        
+    } catch (e) {
+        reply(`❌ Error: ${e.message}`)
     }
     break
 }
