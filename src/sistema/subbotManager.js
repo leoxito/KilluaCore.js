@@ -1,10 +1,4 @@
-// src/sistema/subbotManager.js
-import { 
-    makeWASocket, 
-    useMultiFileAuthState, 
-    DisconnectReason,
-    fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys'
+import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
 import P from 'pino'
 import chalk from 'chalk'
 import { Boom } from '@hapi/boom'
@@ -12,13 +6,14 @@ import fs from 'fs'
 import path from 'path'
 import NodeCache from 'node-cache'
 
-export class SubBotManager {
-    constructor(mainConn, mainNumber, botName) {
+const __dirname = path.dirname(new URL(import.meta.url).pathname)
+
+export class SubBot {
+    constructor(mainConn, mainNumber) {
         this.mainConn = mainConn
         this.mainNumber = mainNumber
-        this.botName = botName || 'Killua-Wa'
         this.subs = new Map()
-        this.configFile = path.join(process.cwd(), 'src', 'subbots.json')
+        this.configFile = path.join(__dirname, '../subbots.json')
         this.cargarConfig()
     }
 
@@ -27,11 +22,11 @@ export class SubBotManager {
             if (fs.existsSync(this.configFile)) {
                 this.config = JSON.parse(fs.readFileSync(this.configFile, 'utf8'))
             } else {
-                this.config = { subbots: [], maxSubBots: 15, autoRestart: true }
+                this.config = { subs: [], max: 15 }
                 fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2))
             }
         } catch (e) {
-            this.config = { subbots: [], maxSubBots: 15, autoRestart: true }
+            this.config = { subs: [], max: 15 }
         }
     }
 
@@ -39,236 +34,84 @@ export class SubBotManager {
         fs.writeFileSync(this.configFile, JSON.stringify(this.config, null, 2))
     }
 
-    async iniciarSubBot(numero, nombre = 'Sub-Bot', prefijo = '.') {
-        if (this.subs.has(numero)) {
-            return { ok: false, msg: '❌ Este número ya es un sub-bot activo' }
+    async agregar(numero, nombre) {
+        if (this.subs.size >= this.config.max) {
+            return { ok: false, msg: `❌ Límite: ${this.config.max}` }
         }
-
-        if (this.subs.size >= this.config.maxSubBots) {
-            return { ok: false, msg: `❌ Límite de ${this.config.maxSubBots} sub-bots alcanzado` }
-        }
-
-        console.log(chalk.yellow(`\n🚀 Iniciando sub-bot: ${nombre} (${numero})`))
 
         try {
-            const { state, saveCreds } = await useMultiFileAuthState(`SubBots/${numero}`)
-            const { version } = await fetchLatestBaileysVersion()
-
+            const { state, saveCreds } = await useMultiFileAuthState(`Subs/${numero}`)
             const conn = makeWASocket({
-                version,
                 logger: P({ level: 'silent' }),
                 auth: state,
                 browser: ['SubBot', 'Chrome', '121.0'],
-                markOnlineOnConnect: true,
-                msgRetryCounterCache: new NodeCache({ stdTTL: 0 })
+                msgRetryCounterCache: new NodeCache()
             })
 
-            // Info del sub-bot
-            conn.subInfo = { 
-                numero, 
-                nombre, 
-                prefijo, 
-                inicio: Date.now(),
-                mainNumber: this.mainNumber,
-                mainBot: this.botName
-            }
+            conn.subInfo = { numero, nombre, main: this.mainNumber }
 
             conn.ev.on('creds.update', saveCreds)
 
-            // Manejar mensajes del sub-bot
-            conn.ev.on('messages.upsert', async (m) => {
-                if (!m.messages[0]) return
-                const msg = m.messages[0]
-                const from = msg.key.remoteJid
-                const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
-                
-                if (text.startsWith(prefijo)) {
-                    const cmd = text.slice(prefijo.length).split(' ')[0].toLowerCase()
-                    
-                    if (cmd === 'ping') {
-                        await conn.sendMessage(from, { text: '🏓 Pong desde sub-bot!' })
-                    }
-                    
-                    if (cmd === 'info') {
-                        const uptime = Math.floor((Date.now() - conn.subInfo.inicio) / 1000)
-                        await conn.sendMessage(from, { 
-                            text: `🤖 *INFORMACIÓN DEL SUB-BOT*\n\n` +
-                                  `📱 *Número:* ${numero}\n` +
-                                  `📛 *Nombre:* ${nombre}\n` +
-                                  `🔤 *Prefijo:* ${prefijo}\n` +
-                                  `⏱️ *Activo:* ${uptime} segundos\n` +
-                                  `🤖 *Bot Principal:* ${this.botName}\n` +
-                                  `👑 *Owner:* ${this.mainNumber}`
-                        })
-                    }
-                }
-            })
-
-            // Manejar conexión del sub-bot
             conn.ev.on('connection.update', async (u) => {
-                const { connection, lastDisconnect, qr } = u
+                const { connection, lastDisconnect } = u
                 
-                if (qr) {
-                    console.log(chalk.yellow(`📱 QR para ${nombre} (${numero})`))
-                }
-
                 if (connection === 'open') {
-                    console.log(chalk.green(`✅ Sub-bot ${nombre} conectado`))
-                    
-                    // Notificar al bot principal
+                    console.log(chalk.green(`✅ Sub: ${nombre}`))
+                    await conn.sendMessage(numero + '@s.whatsapp.net', { 
+                        text: `✅ Eres sub-bot de ${global.botName}\n👑 Owner: ${this.mainNumber}` 
+                    })
                     if (this.mainConn) {
-                        await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', {
-                            text: `✅ *SUB-BOT CONECTADO*\n\n` +
-                                  `📛 *Nombre:* ${nombre}\n` +
-                                  `📱 *Número:* ${numero}\n` +
-                                  `🔤 *Prefijo:* ${prefijo}\n` +
-                                  `⏱️ *Hora:* ${new Date().toLocaleString()}`
+                        await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', { 
+                            text: `✅ Sub conectado: ${nombre}` 
                         })
                     }
-                    
-                    // Mensaje de bienvenida al sub-bot
-                    await conn.sendMessage(this.mainNumber + '@s.whatsapp.net', {
-                        text: `🤖 *¡Ahora Eres Un Sub-Bot De ${this.botName}!*\n\n` +
-                              `📱 *Tu número:* ${numero}\n` +
-                              `📛 *Tu nombre:* ${nombre}\n` +
-                              `🔤 *Tu prefijo:* ${prefijo}\n` +
-                              `👑 *Bot Principal:* ${this.mainNumber}\n\n` +
-                              `✅ *Sub-Bot conectado correctamente*\n\n` +
-                              `Comandos disponibles:\n` +
-                              `${prefijo}ping - Probar conexión\n` +
-                              `${prefijo}info - Ver información`
-                    })
                 }
 
                 if (connection === 'close') {
                     const code = new Boom(lastDisconnect?.error)?.output?.statusCode
-                    console.log(chalk.red(`❌ Sub-bot ${nombre} (${numero}) desconectado - Código:`, code))
-                    
                     this.subs.delete(numero)
-                    
-                    // Notificar al bot principal
-                    if (this.mainConn && code !== DisconnectReason.loggedOut) {
-                        await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', {
-                            text: `❌ *SUB-BOT DESCONECTADO*\n\n` +
-                                  `📛 *Nombre:* ${nombre}\n` +
-                                  `📱 *Número:* ${numero}\n` +
-                                  `🔌 *Código:* ${code}`
-                        })
-                    }
-                    
-                    // Auto-reconexión
-                    if (code !== DisconnectReason.loggedOut && this.config.autoRestart) {
-                        console.log(chalk.yellow(`🔄 Reconectando ${nombre} en 5 segundos...`))
-                        setTimeout(() => this.iniciarSubBot(numero, nombre, prefijo), 5000)
+                    if (code !== DisconnectReason.loggedOut) {
+                        setTimeout(() => this.agregar(numero, nombre), 5000)
                     }
                 }
             })
 
-            this.subs.set(numero, { conn, nombre, prefijo, inicio: Date.now() })
+            this.subs.set(numero, { conn, nombre })
 
-            // Guardar en configuración si es nuevo
-            const existe = this.config.subbots.find(s => s.numero === numero)
-            if (!existe) {
-                this.config.subbots.push({ numero, nombre, prefijo, activo: true })
-                this.guardarConfig()
-            }
-
-            return { ok: true, msg: '✅ Sub-bot iniciado', conn }
-
-        } catch (e) {
-            return { ok: false, msg: `❌ Error: ${e.message}` }
-        }
-    }
-
-    async iniciarConCodigo(numero, nombre = 'Sub-Bot', prefijo = '.') {
-        if (this.subs.has(numero)) {
-            return { ok: false, msg: '❌ Ya existe un sub-bot con ese número' }
-        }
-
-        const result = await this.iniciarSubBot(numero, nombre, prefijo)
-        
-        if (result.ok && result.conn) {
-            // Generar código de 8 dígitos
-            setTimeout(async () => {
-                try {
-                    const code = await result.conn.requestPairingCode(numero)
-                    const codigoFormateado = code.match(/.{1,4}/g)?.join('-') || code
-                    
-                    // Enviar código al bot principal
+            if (!fs.existsSync(`Subs/${numero}/creds.json`)) {
+                setTimeout(async () => {
+                    const code = await conn.requestPairingCode(numero)
+                    const codigo = code.match(/.{1,4}/g)?.join('-')
                     if (this.mainConn) {
-                        await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', {
-                            text: `🔑 *CÓDIGO PARA SUB-BOT*\n\n` +
-                                  `📛 *Nombre:* ${nombre}\n` +
-                                  `📱 *Número:* ${numero}\n` +
-                                  `🔤 *Prefijo:* ${prefijo}\n\n` +
-                                  `📟 *Código de 8 dígitos:*\n` +
-                                  `┌───────────────┐\n` +
-                                  `│   ${codigoFormateado}   │\n` +
-                                  `└───────────────┘\n\n` +
-                                  `✨ *Instrucciones:*\n` +
-                                  `1. Abre WhatsApp en el número ${numero}\n` +
-                                  `2. Ve a Dispositivos vinculados\n` +
-                                  `3. Pulsa en "Vincular dispositivo"\n` +
-                                  `4. Ingresa el código: ${codigoFormateado}`
+                        await this.mainConn.sendMessage(this.mainNumber + '@s.whatsapp.net', { 
+                            text: `🔑 Código para ${nombre}:\n${codigo}` 
                         })
                     }
-                    
-                    console.log(chalk.green(`🔑 Código para ${nombre}: ${codigoFormateado}`))
-                } catch (e) {
-                    console.log(chalk.red(`Error generando código: ${e.message}`))
-                }
-            }, 2000)
-        }
-        
-        return result
-    }
-
-    detenerSubBot(numero) {
-        if (this.subs.has(numero)) {
-            const { conn, nombre } = this.subs.get(numero)
-            conn.ws.close()
-            this.subs.delete(numero)
-            
-            // Actualizar config
-            const bot = this.config.subbots.find(s => s.numero === numero)
-            if (bot) bot.activo = false
-            this.guardarConfig()
-            
-            return { ok: true, msg: `🛑 Sub-bot ${nombre} detenido` }
-        }
-        return { ok: false, msg: '❌ Sub-bot no encontrado' }
-    }
-
-    listarSubBots() {
-        const activos = []
-        const inactivos = []
-        
-        this.config.subbots.forEach(bot => {
-            if (this.subs.has(bot.numero)) {
-                const data = this.subs.get(bot.numero)
-                const uptime = Math.floor((Date.now() - data.inicio) / 1000)
-                activos.push({
-                    ...bot,
-                    uptime,
-                    conectado: true
-                })
-            } else {
-                inactivos.push({
-                    ...bot,
-                    conectado: false
-                })
+                }, 2000)
             }
-        })
-        
-        return { activos, inactivos }
+
+            this.config.subs.push({ numero, nombre })
+            this.guardarConfig()
+            return { ok: true }
+
+        } catch (e) {
+            return { ok: false, msg: e.message }
+        }
     }
 
-    obtenerEstado() {
-        return {
-            total: this.config.subbots.length,
-            activos: this.subs.size,
-            maximo: this.config.maxSubBots,
-            autoRestart: this.config.autoRestart
+    listar() {
+        return Array.from(this.subs.entries()).map(([num, data]) => ({
+            numero: num,
+            nombre: data.nombre
+        }))
+    }
+
+    detener(numero) {
+        if (this.subs.has(numero)) {
+            this.subs.get(numero).conn.ws.close()
+            this.subs.delete(numero)
+            return true
         }
+        return false
     }
 }
