@@ -215,151 +215,8 @@ if (existsSync(reaccionesPath)) {
     reaccionesData = JSON.parse(readFileSync(reaccionesPath, 'utf-8'))
 }
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('Sessions')
-    const { version } = await fetchLatestBaileysVersion()
-
-    let opcion
-    let methodCode = false
-    let methodCodeQR = false
-    let phoneNumber = ""
-
-    if (!methodCodeQR && !methodCode && !fs.existsSync(`./Sessions/creds.json`)) {
-        do {
-            console.log('')
-            console.log(chalk.white('   ¿Cómo quieres conectar?'))
-            console.log(chalk.white('   ') + chalk.hex('#00FFFF')('1) ') + chalk.white('Usar código QR'))
-            console.log(chalk.white('   ') + chalk.hex('#00FFFF')('2) ') + chalk.white('Usar código de 8 dígitos'))
-            process.stdout.write(chalk.white('   » Tu opción: '))
-            opcion = await question('')
-            if (!/^[1-2]$/.test(opcion)) {
-                console.log(chalk.red('   Solo opciones 1 o 2'))
-            }
-        } while (opcion !== '1' && opcion !== '2' || fs.existsSync(`./Sessions/creds.json`))
-    }
-
-    console.info = () => {}
-
-    const conn = makeWASocket({
-    version,
-    logger: P({ level: 'silent' }),
-    printQRInTerminal: opcion === '1',
-    auth: { 
-        creds: state.creds, 
-        keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'silent' })) 
-    },
-    browser: ['Ubuntu', 'Chrome', '121.0.6167.160'],
-    syncFullHistory: false,
-    shouldSyncHistoryMessage: () => false,
-    markOnlineOnConnect: true,
-    keepAliveIntervalMs: 30000, 
-    defaultQueryTimeoutMs: 0,
-    connectTimeoutMs: 60000,
-    retryRequestDelayMs: 500,
-    generateHighQualityLinkPreview: true,
-    msgRetryCounterCache
-})
-global.mainConn = conn
-
-setInterval(async () => {
-    if (conn.user) {
-        await conn.sendPresenceUpdate('available')
-    }
-}, 60000)
-
-    conn.getName = (jid, withoutContact = false) => {
-    jid = decodeJid(jid) || ''
-    withoutContact = conn.withoutContact || withoutContact
-    let v
-    if (typeof jid === 'string' && jid.endsWith('@g.us')) return new Promise(async (resolve) => {
-        v = global.db.data.chats[jid] || {}
-        if (v.name || v.subject) return resolve(v.name || v.subject)
-
-        const cached = groupCache.get(jid)
-        if (cached) return resolve(cached.subject || cached.name)
-
-        try {
-            const metadata = await conn.groupMetadata(jid)
-            groupCache.set(jid, metadata)
-            resolve(metadata.name || metadata.subject)
-        } catch {
-            resolve(jid.split('@')[0])
-        }
-    })
-    else v = jid === '0@s.whatsapp.net' ? { jid, name: 'WhatsApp' } : jid === decodeJid(conn.user?.id) ? conn.user : (global.db.data.users[jid] || {})
-    return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || (typeof jid === 'string' ? jid.split('@')[0] : '')
-}
-
-const getAdmins = (participants) => {
-    return participants.filter(p => p.admin !== null).map(p => p.id)
-}
-
-const checkAdmin = async (conn, from, sender) => {
-    try {
-        const metadata = groupCache.get(from) || await conn.groupMetadata(from).catch(() => null)
-        if (!metadata) return { isUserAdmin: false, isBotAdmin: false }
-
-        groupCache.set(from, metadata)
-        const admins = getAdmins(metadata.participants)
-        const botId = decodeJid(conn.user.id)
-
-        return { 
-            isUserAdmin: admins.includes(decodeJid(sender)), 
-            isBotAdmin: admins.includes(botId) 
-        }
-    } catch {
-        return { isUserAdmin: false, isBotAdmin: false }
-    }
-}
-
-    if (!fs.existsSync(`./Sessions/creds.json`)) {
-        if (opcion === '2' || methodCode) {
-            opcion = '2'
-            if (!conn.authState.creds.registered) {
-                let addNumber
-                if (!!phoneNumber) {
-                    addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
-                } else {
-                    do {
-                        console.log(chalk.hex('#00FFFF')('INGRESAR NÚMERO'))
-                        console.log(chalk.white('[+] '))
-                        phoneNumber = await question('')
-                        phoneNumber = String(phoneNumber).replace(/\D/g, '')
-                        if (!phoneNumber.startsWith('+')) phoneNumber = `+${phoneNumber}`
-                    } while (!await isValidPhoneNumber(phoneNumber))
-                    addNumber = phoneNumber.replace(/\D/g, '')
-                    setTimeout(async () => {
-                        let codeBot = await conn.requestPairingCode(addNumber)
-                        codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
-                        console.log(chalk.hex('#00FFFF')('CÓDIGO GENERADO'))
-                        console.log(chalk.hex('#00FFFF')('──────────────────────────'))
-                        console.log(chalk.white('╔══════════════════════╗'))
-                        console.log(chalk.white('║        ' + codeBot + '      ║'))
-                        console.log(chalk.white('╚══════════════════════╝'))
-                        console.log(chalk.hex('#00FFFF')('──────────────────────────'))
-                    }, 1000)
-                }
-            }
-        }
-    }
-
-    conn.ev.on('creds.update', saveCreds)
-
-
-                 conn.ev.on('messages.upsert', async (m) => {
-    if (!m.messages?.[0] || m.type !== 'notify' || m.messages[0].key.remoteJid === 'status@broadcast') return
-    const msg = m.messages[0]
-    if (!msg.message) return
-    setImmediate(async () => {
-        try {
-            await processMessage(msg, `${msg.key.remoteJid}-${msg.key.id}`)
-        } catch (e) {
-            console.error(e)
-        }
-    })
-})       
-
-            async function startSubBot(m, client, phone = '', metodo = 1) {
+// ===== FUNCIÓN STARTSUB-BOT MOVIDA FUERA DE STARTBOT =====
+async function startSubBot(m, client, phone = '', metodo = 1) {
     try {
         const userJid = m.key.participant || m.key.remoteJid
         const id = phone ? phone.replace(/[^0-9]/g, '') : decodeJid(userJid).split('@')[0]
@@ -460,8 +317,7 @@ const checkAdmin = async (conn, from, sender) => {
     }
 }
 
-
-            async function processMessage(msg, msgId, connCustom, customPrefix) {
+async function processMessage(msg, msgId, connCustom, customPrefix) {
     const conn = connCustom || global.mainConn
     if (!conn || !msg || !msg.key) return
     
@@ -683,6 +539,150 @@ const checkAdmin = async (conn, from, sender) => {
     }
     messageCache.set(msgId, Date.now())
 }
+
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('Sessions')
+    const { version } = await fetchLatestBaileysVersion()
+
+    let opcion
+    let methodCode = false
+    let methodCodeQR = false
+    let phoneNumber = ""
+
+    if (!methodCodeQR && !methodCode && !fs.existsSync(`./Sessions/creds.json`)) {
+        do {
+            console.log('')
+            console.log(chalk.white('   ¿Cómo quieres conectar?'))
+            console.log(chalk.white('   ') + chalk.hex('#00FFFF')('1) ') + chalk.white('Usar código QR'))
+            console.log(chalk.white('   ') + chalk.hex('#00FFFF')('2) ') + chalk.white('Usar código de 8 dígitos'))
+            process.stdout.write(chalk.white('   » Tu opción: '))
+            opcion = await question('')
+            if (!/^[1-2]$/.test(opcion)) {
+                console.log(chalk.red('   Solo opciones 1 o 2'))
+            }
+        } while (opcion !== '1' && opcion !== '2' || fs.existsSync(`./Sessions/creds.json`))
+    }
+
+    console.info = () => {}
+
+    const conn = makeWASocket({
+    version,
+    logger: P({ level: 'silent' }),
+    printQRInTerminal: opcion === '1',
+    auth: { 
+        creds: state.creds, 
+        keys: makeCacheableSignalKeyStore(state.keys, P({ level: 'silent' })) 
+    },
+    browser: ['Ubuntu', 'Chrome', '121.0.6167.160'],
+    syncFullHistory: false,
+    shouldSyncHistoryMessage: () => false,
+    markOnlineOnConnect: true,
+    keepAliveIntervalMs: 30000, 
+    defaultQueryTimeoutMs: 0,
+    connectTimeoutMs: 60000,
+    retryRequestDelayMs: 500,
+    generateHighQualityLinkPreview: true,
+    msgRetryCounterCache
+})
+global.mainConn = conn
+
+setInterval(async () => {
+    if (conn.user) {
+        await conn.sendPresenceUpdate('available')
+    }
+}, 60000)
+
+    conn.getName = (jid, withoutContact = false) => {
+    jid = decodeJid(jid) || ''
+    withoutContact = conn.withoutContact || withoutContact
+    let v
+    if (typeof jid === 'string' && jid.endsWith('@g.us')) return new Promise(async (resolve) => {
+        v = global.db.data.chats[jid] || {}
+        if (v.name || v.subject) return resolve(v.name || v.subject)
+
+        const cached = groupCache.get(jid)
+        if (cached) return resolve(cached.subject || cached.name)
+
+        try {
+            const metadata = await conn.groupMetadata(jid)
+            groupCache.set(jid, metadata)
+            resolve(metadata.name || metadata.subject)
+        } catch {
+            resolve(jid.split('@')[0])
+        }
+    })
+    else v = jid === '0@s.whatsapp.net' ? { jid, name: 'WhatsApp' } : jid === decodeJid(conn.user?.id) ? conn.user : (global.db.data.users[jid] || {})
+    return (withoutContact ? '' : v.name) || v.subject || v.verifiedName || (typeof jid === 'string' ? jid.split('@')[0] : '')
+}
+
+const getAdmins = (participants) => {
+    return participants.filter(p => p.admin !== null).map(p => p.id)
+}
+
+const checkAdmin = async (conn, from, sender) => {
+    try {
+        const metadata = groupCache.get(from) || await conn.groupMetadata(from).catch(() => null)
+        if (!metadata) return { isUserAdmin: false, isBotAdmin: false }
+
+        groupCache.set(from, metadata)
+        const admins = getAdmins(metadata.participants)
+        const botId = decodeJid(conn.user.id)
+
+        return { 
+            isUserAdmin: admins.includes(decodeJid(sender)), 
+            isBotAdmin: admins.includes(botId) 
+        }
+    } catch {
+        return { isUserAdmin: false, isBotAdmin: false }
+    }
+}
+
+    if (!fs.existsSync(`./Sessions/creds.json`)) {
+        if (opcion === '2' || methodCode) {
+            opcion = '2'
+            if (!conn.authState.creds.registered) {
+                let addNumber
+                if (!!phoneNumber) {
+                    addNumber = String(phoneNumber).replace(/[^0-9]/g, '')
+                } else {
+                    do {
+                        console.log(chalk.hex('#00FFFF')('INGRESAR NÚMERO'))
+                        console.log(chalk.white('[+] '))
+                        phoneNumber = await question('')
+                        phoneNumber = String(phoneNumber).replace(/\D/g, '')
+                        if (!phoneNumber.startsWith('+')) phoneNumber = `+${phoneNumber}`
+                    } while (!await isValidPhoneNumber(phoneNumber))
+                    addNumber = phoneNumber.replace(/\D/g, '')
+                    setTimeout(async () => {
+                        let codeBot = await conn.requestPairingCode(addNumber)
+                        codeBot = codeBot.match(/.{1,4}/g)?.join("-") || codeBot
+                        console.log(chalk.hex('#00FFFF')('CÓDIGO GENERADO'))
+                        console.log(chalk.hex('#00FFFF')('──────────────────────────'))
+                        console.log(chalk.white('╔══════════════════════╗'))
+                        console.log(chalk.white('║        ' + codeBot + '      ║'))
+                        console.log(chalk.white('╚══════════════════════╝'))
+                        console.log(chalk.hex('#00FFFF')('──────────────────────────'))
+                    }, 1000)
+                }
+            }
+        }
+    }
+
+    conn.ev.on('creds.update', saveCreds)
+
+
+                 conn.ev.on('messages.upsert', async (m) => {
+    if (!m.messages?.[0] || m.type !== 'notify' || m.messages[0].key.remoteJid === 'status@broadcast') return
+    const msg = m.messages[0]
+    if (!msg.message) return
+    setImmediate(async () => {
+        try {
+            await processMessage(msg, `${msg.key.remoteJid}-${msg.key.id}`)
+        } catch (e) {
+            console.error(e)
+        }
+    })
+})       
 
     conn.ev.on('connection.update', (u) => {
         if (u.connection === 'open') {
