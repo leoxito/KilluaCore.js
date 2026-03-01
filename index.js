@@ -481,42 +481,43 @@ async function processMessage(msg, msgId, connCustom, customPrefix) {
             }                              
 
             switch (command) {      
-                default:
-                    let commandFound = false
-                    for (let i in global.plugins) {
-                        try {
-                            if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
-                                const context = {
-                                    conn, from, sender, pushName, reply, isGroup, text, q, args,
-                                    isOwner, isMod, msg, body, usedPrefix, commandText, command,
-                                    realSender, senderNumber, settings, user, prefixList,
-                                    global, console, Buffer, process, require
-                                }
-                                
-                                const functionBody = `
-                                    (async () => {
-                                        const { conn, from, sender, pushName, reply, isGroup, text, q, args,
-                                               isOwner, isMod, msg, body, usedPrefix, commandText, command,
-                                               realSender, senderNumber, settings, user, prefixList,
-                                               global, console, Buffer, process, require } = context
-                                        ${global.plugins[i]}
-                                    })()
-                                `
-                                
-                                await eval(functionBody)
-                                commandFound = true
-                                break
-                            }
-                        } catch (e) {
-                            console.error('Error ejecutando comando:', e)
-                            reply(`❌ Error: ${e.message}`)
-                        }
+    default:
+        let commandFound = false
+        for (let i in global.plugins) {
+            try {
+                if (global.plugins[i].includes(`case '${command}':`) || global.plugins[i].includes(`case "${command}":`)) {
+                    const context = {
+                        conn, from, sender, pushName, reply, isGroup, text, q, args,
+                        isOwner, isMod, msg, body, usedPrefix, commandText, command,
+                        realSender, senderNumber, settings, user, prefixList,
+                        global, console, Buffer, process
                     }
-
-                    if (!commandFound && usedPrefix) {
-                        reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
-                    }
+                    
+                    const functionBody = `
+                        (async () => {
+                            const { conn, from, sender, pushName, reply, isGroup, text, q, args,
+                                   isOwner, isMod, msg, body, usedPrefix, commandText, command,
+                                   realSender, senderNumber, settings, user, prefixList,
+                                   global, console, Buffer, process } = context
+                            ${global.plugins[i]}
+                        })()
+                    `
+                    
+                    await eval(functionBody)
+                    commandFound = true
                     break
+                }
+            } catch (e) {
+                console.error('Error ejecutando comando:', e)
+                reply(`❌ Error: ${e.message}`)
+            }
+        }
+
+        if (!commandFound && usedPrefix) {
+            reply(`🌴 Este Comando No Esta En Mi Base De Datos: *${command}*\n\n> Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles Que Tengo !`)
+        }
+        break
+}
             }
         }
     } catch (err) { 
