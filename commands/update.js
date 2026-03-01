@@ -8,7 +8,7 @@ case 'update': case 'up': {
         return reply(`*🌴 Este Comando No Esta Disponible En Mi Base De Datos*: *${command}*\n\n> _Te Recomiendo Usar *${usedPrefix}help* para ver los comandos disponibles._`)
     }
     
-    await reply('🔄 Reiniciando sistema...')
+    await reply('*Actualizando Killua-Wa*')
     process.exit(0)
     break
 }
