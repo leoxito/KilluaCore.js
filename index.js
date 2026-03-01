@@ -30,7 +30,6 @@ import readline from 'readline'
 import qrcode from "qrcode"
 import NodeCache from 'node-cache'
 import * as crypto from 'crypto';
-import { SubBot } from './src/sistema/subbotManager.js'
 
 let messageCache = new Map()
 const fastCache = new Map();
@@ -42,6 +41,10 @@ const msgRetryCounterCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const userDevicesCache = new NodeCache({ stdTTL: 0, checkperiod: 0 })
 const groupCache = new NodeCache({ stdTTL: 600, checkperiod: 60 })
 
+const groupMetadataCache = new Map()
+const lidCache = new Map()
+const metadataTTL = 5000 
+
 const decodeJid = (jid) => {
     if (!jid) return jid
     if (/:\d+@/gi.test(jid)) {
@@ -49,6 +52,82 @@ const decodeJid = (jid) => {
         return jid.replace(decode[0], '@')
     }
     return jid
+}
+
+async function resolveLidToPnJid(conn, chatJid, candidateJid) {
+    const jid = decodeJid(candidateJid)
+    if (!jid) return jid
+    if (jid.endsWith('@s.whatsapp.net')) return jid.split(':')[0] + '@s.whatsapp.net'
+    if (!jid.endsWith('@lid') || !chatJid?.endsWith('@g.us')) return jid
+    
+    if (lidCache.has(jid)) return lidCache.get(jid)
+
+    try {
+        let cached = groupMetadataCache.get(chatJid)
+        let meta = (cached && (Date.now() - cached.timestamp < metadataTTL)) ? cached.metadata : null
+
+        if (!meta) {
+            meta = await conn.groupMetadata(chatJid)
+            groupMetadataCache.set(chatJid, { metadata: meta, timestamp: Date.now() })
+        }
+
+        const participants = Array.isArray(meta?.participants) ? meta.participants : []
+
+        const found = participants.find(p => {
+            const pid = decodeJid(p?.id || '')
+            const plid = decodeJid(p?.lid || '')
+            return pid === jid || plid === jid
+        })
+
+        if (found) {
+            let realNumber = found.phoneNumber || (found.id.endsWith('@s.whatsapp.net') ? found.id : null)
+            if (realNumber) {
+                const finalPn = decodeJid(realNumber.includes('@') ? realNumber : `${realNumber}@s.whatsapp.net`).split(':')[0] + '@s.whatsapp.net'
+                lidCache.set(jid, finalPn)
+                return finalPn
+            }
+        }
+        
+        const [onWa] = await conn.onWhatsApp(jid.split('@')[0])
+        if (onWa && onWa.exists) {
+            const fixed = decodeJid(onWa.jid).split(':')[0] + '@s.whatsapp.net'
+            lidCache.set(jid, fixed)
+            return fixed
+        }
+
+    } catch (e) {}
+
+    if (jid.endsWith('@lid')) {
+        const forcePn = jid.split('@')[0] + '@s.whatsapp.net'
+        return forcePn
+    }
+
+    return jid
+}
+
+async function pickTargetJid(m, conn) {
+    const chatJid = decodeJid(m?.chat || m?.key?.remoteJid || m?.from || '')
+    const ctx = m?.message?.extendedTextMessage?.contextInfo || m?.msg?.contextInfo || {}
+
+    let raw = ''
+    const mentioned = m?.mentionedJid || ctx?.mentionedJid || ctx?.mentionedJidList || []
+    
+    if (Array.isArray(mentioned) && mentioned.length) {
+        raw = mentioned[0]
+    } else if (m?.quoted || ctx?.participant) {
+        raw = m?.quoted?.participant || ctx?.participant || m?.quoted?.key?.participant || ''
+    } else if (conn?.parseMention) {
+        const text = m?.text || m?.body || m?.message?.conversation || ''
+        const parsed = conn.parseMention(String(text))
+        if (parsed?.length) raw = parsed[0]
+    }
+
+    if (raw) {
+        return await resolveLidToPnJid(conn, chatJid, raw)
+    } else {
+        const sender = m?.key?.participant || m?.key?.remoteJid || ''
+        return await resolveLidToPnJid(conn, chatJid, sender)
+    }
 }
 
 const execPromise = promisify(exec)
@@ -513,18 +592,6 @@ const checkAdmin = async (conn, from, sender) => {
 } 
 
 startBot()
-
-// ===== SISTEMA DE SUB-BOTS =====
-global.subManager = null
-
-// Iniciar sistema de sub-bots cuando el bot principal esté conectado
-setInterval(() => {
-    if (global.mainConn && global.mainConn.user && !global.subManager) {
-        const mainNumber = global.mainConn.user.id.split(':')[0]
-        global.subManager = new SubBot(global.mainConn, mainNumber)
-        console.log(chalk.green('📱 Sistema de sub-bots listo'))
-    }
-}, 5000)
 
 setInterval(async () => {
     if (global.db) await global.db.write()
