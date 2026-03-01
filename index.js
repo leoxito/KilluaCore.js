@@ -59,7 +59,7 @@ async function resolveLidToPnJid(conn, chatJid, candidateJid) {
     if (!jid) return jid
     if (jid.endsWith('@s.whatsapp.net')) return jid.split(':')[0] + '@s.whatsapp.net'
     if (!jid.endsWith('@lid') || !chatJid?.endsWith('@g.us')) return jid
-    
+
     if (lidCache.has(jid)) return lidCache.get(jid)
 
     try {
@@ -87,7 +87,7 @@ async function resolveLidToPnJid(conn, chatJid, candidateJid) {
                 return finalPn
             }
         }
-        
+
         const [onWa] = await conn.onWhatsApp(jid.split('@')[0])
         if (onWa && onWa.exists) {
             const fixed = decodeJid(onWa.jid).split(':')[0] + '@s.whatsapp.net'
@@ -111,7 +111,7 @@ async function pickTargetJid(m, conn) {
 
     let raw = ''
     const mentioned = m?.mentionedJid || ctx?.mentionedJid || ctx?.mentionedJidList || []
-    
+
     if (Array.isArray(mentioned) && mentioned.length) {
         raw = mentioned[0]
     } else if (m?.quoted || ctx?.participant) {
@@ -363,7 +363,7 @@ const checkAdmin = async (conn, from, sender) => {
         const userJid = m.key.participant || m.key.remoteJid
         const id = phone ? phone.replace(/[^0-9]/g, '') : decodeJid(userJid).split('@')[0]
         const sessionFolder = `./subs/${id}`
-        
+
         if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder, { recursive: true })
 
         const { state, saveCreds } = await useMultiFileAuthState(sessionFolder)
@@ -387,7 +387,7 @@ const checkAdmin = async (conn, from, sender) => {
 
         sock.ev.on('connection.update', async (s) => {
             const { connection, lastDisconnect, qr } = s
-            
+
             if (qr && metodo == 1) {
                 try {
                     const Buffer = await qrcode.toBuffer(qr, { scale: 8 })
@@ -436,7 +436,13 @@ const checkAdmin = async (conn, from, sender) => {
             async function processMessage(msg, msgId, connCustom, customPrefix) {
     const conn = connCustom || global.mainConn
     if (!conn || !msg || !msg.key) return
-    const usedPrefix = customPrefix || (global.prefix && global.prefix[0]) || '!'
+    
+    // Definir prefixList correctamente
+    const prefixList = Array.isArray(global.prefix) ? global.prefix : [global.prefix || '!']
+    const usedPrefix = customPrefix || prefixList.find(p => {
+        const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ''
+        return body.startsWith(p)
+    }) || prefixList[0]
 
     try {
         const from = msg.key.remoteJid
@@ -568,14 +574,13 @@ const checkAdmin = async (conn, from, sender) => {
             }
         }
 
-        const usedPrefix = prefixList.find(p => body.startsWith(p))
-
+        // ===== CORREGIDO: usamos usedPrefix que ya definimos =====
         const prefixCommands = ['prefix', 'prefijo', 'Prefijo', 'Prefix', 'PREFIJO']
         if (prefixCommands.includes(body.toLowerCase())) {
-            return conn.sendMessage(from, { text: `✰ *prefijo:* ${prefixList[0]}` }, { quoted: msg })
+            return conn.sendMessage(from, { text: `✰ *prefijo:* ${usedPrefix}` }, { quoted: msg })
         }
 
-        if (usedPrefix !== null && usedPrefix !== undefined) {
+        if (usedPrefix !== null && usedPrefix !== undefined && body.startsWith(usedPrefix)) {
             const commandText = body.slice(usedPrefix.length).trim()
             const args = commandText.split(/ +/)
             const command = args.shift().toLowerCase()
